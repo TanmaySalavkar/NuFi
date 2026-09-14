@@ -46,7 +46,11 @@ router.get('/dashboard', async (req, res) => {
       { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 }
     );
 
-    // Calculate health score (0-100) based on how close consumed is to targets
+    if (!user.dailyTargets) {
+      user.dailyTargets = { calories: 2000, protein: 115, carbs: 250, fat: 65, fiber: 30, sugar: 50, sodium: 2300 };
+      await user.save();
+    }
+
     const targets = user.dailyTargets;
     const calorieRatio = Math.min(consumed.calories / targets.calories, 1);
     const proteinRatio = Math.min(consumed.protein / targets.protein, 1);
@@ -56,12 +60,60 @@ router.get('/dashboard', async (req, res) => {
     const sugarPenalty = consumed.sugar > targets.sugar ? 0.8 : 1;
     const sodiumPenalty = consumed.sodium > targets.sodium ? 0.8 : 1;
 
-    const healthScore = Math.round(
+    const healthScore = todaysMeals.length === 0 ? 0 : Math.round(
       ((calorieRatio * 0.3 + proteinRatio * 0.25 + fiberRatio * 0.15 + 0.3) *
         sugarPenalty *
         sodiumPenalty) *
         100
     );
+
+    // Calculate week scores for Mon..Sun
+    const now = new Date();
+    const currentDayOfWeek = (now.getDay() + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - currentDayOfWeek);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const weekMeals = await MealLog.find({
+      userId: req.user.id,
+      loggedAt: { $gte: monday, $lte: sunday },
+    });
+
+    const weekScores = [null, null, null, null, null, null, null];
+    for (let day = 0; day <= currentDayOfWeek; day++) {
+      const dayStart = new Date(monday);
+      dayStart.setDate(monday.getDate() + day);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const dMeals = weekMeals.filter(m => {
+        const d = new Date(m.loggedAt);
+        return d >= dayStart && d <= dayEnd;
+      });
+
+      if (dMeals.length > 0) {
+        const dConsumed = dMeals.reduce((acc, m) => {
+          acc.calories += m.calories || 0;
+          acc.protein += m.protein || 0;
+          acc.fiber += m.fiber || 0;
+          acc.sugar += m.sugar || 0;
+          acc.sodium += m.sodium || 0;
+          return acc;
+        }, { calories: 0, protein: 0, fiber: 0, sugar: 0, sodium: 0 });
+
+        const calR = Math.min(dConsumed.calories / targets.calories, 1);
+        const protR = Math.min(dConsumed.protein / targets.protein, 1);
+        const fibR = Math.min(dConsumed.fiber / targets.fiber, 1);
+        const sugP = dConsumed.sugar > targets.sugar ? 0.8 : 1;
+        const sodP = dConsumed.sodium > targets.sodium ? 0.8 : 1;
+
+        weekScores[day] = Math.min(Math.round(((calR * 0.3 + protR * 0.25 + fibR * 0.15 + 0.3) * sugP * sodP) * 100), 100);
+      }
+    }
 
     res.json({
       targets: user.dailyTargets,
@@ -79,6 +131,7 @@ router.get('/dashboard', async (req, res) => {
       })),
       habits: user.habits,
       healthScore: Math.min(healthScore, 100),
+      weekScores,
       userName: user.name,
     });
   } catch (err) {
@@ -201,4 +254,42 @@ router.get('/history', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/diet/targets
+ * Update user's daily nutrition targets and/or health profile
+ * Body: { targets?: { calories, protein, carbs, fat, fiber, sugar, sodium }, profile?: { goal, weight, height, age, activityLevel } }
+ */
+router.put('/targets', async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    const { targets, profile } = req.body;
+
+    if (profile) {
+      Object.assign(user.profile, profile);
+    }
+
+    if (targets) {
+      Object.assign(user.dailyTargets, targets);
+    }
+
+    // If profile changed but no explicit targets provided, let the pre-save hook recompute
+    if (profile && !targets) {
+      user.markModified('profile');
+    } else if (targets) {
+      // Prevent pre-save hook from overwriting explicit targets
+      user.markModified('dailyTargets');
+    }
+
+    await user.save();
+
+    res.json({ success: true, targets: user.dailyTargets, profile: user.profile });
+  } catch (err) {
+    console.error('Update targets error:', err);
+    res.status(500).json({ error: 'Failed to update targets.' });
+  }
+});
+
 module.exports = router;
+

@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema({
   },
   dailyTargets: {
     calories: { type: Number, default: 2000 },
-    protein: { type: Number, default: 150 },     // grams
+    protein: { type: Number, default: 115 },     // grams
     carbs: { type: Number, default: 250 },
     fat: { type: Number, default: 65 },
     fiber: { type: Number, default: 30 },
@@ -106,8 +106,8 @@ function computeDailyTargets(profile) {
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
-  // Compute daily targets if profile changed
-  if (this.isModified('profile') || this.isNew) {
+  // Compute daily targets only for new users — updates via /api/diet/targets are explicit
+  if (this.isNew) {
     this.dailyTargets = computeDailyTargets(this.profile);
   }
 
@@ -119,6 +119,7 @@ userSchema.pre('save', async function (next) {
 
   next();
 });
+
 
 // Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword) {

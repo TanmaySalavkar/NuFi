@@ -1,85 +1,75 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-
-import { HomeIcon, HeartIcon, SaladIcon, BellIcon } from './Icons';
+import { UserCircle2 } from 'lucide-react-native';
+import { HomeIcon, HeartIcon, SaladIcon } from './Icons';
 
 const LIME = '#C8FF00';
 const DARK_BG = '#1A1A2E';
 
-const BottomNavBar = ({ activeTab = 'home' }) => {
+// Map visual tabs → real tab route names (null = no route / placeholder)
+const TABS = [
+  { key: 'home',    label: 'Home',    route: 'DietDashboard' },
+  { key: 'habits',  label: 'Habits',  route: null },
+  { key: 'meals',   label: 'Meals',   route: 'MealHistory' },
+  { key: 'profile', label: 'Profile', route: 'Profile' },
+];
+
+const renderIcon = (key, color) => {
+  const props = { size: 20, color, strokeWidth: 2 };
+  switch (key) {
+    case 'home':    return <HomeIcon    size={20} color={color} />;
+    case 'habits':  return <HeartIcon   size={20} color={color} />;
+    case 'meals':   return <SaladIcon   size={20} color={color} />;
+    case 'profile': return <UserCircle2 {...props} />;
+    default:        return null;
+  }
+};
+
+// Receives props from Tab.Navigator tabBar prop
+const BottomNavBar = ({ state, navigation }) => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
 
-  const tabs = [
-    { key: 'home', label: 'Home', route: 'DietDashboard' },
-    { key: 'habits', label: 'Habits', route: null },
-    { key: 'meals', label: 'Meals', route: 'MealHistory' },
-    { key: 'todo', label: 'To-do', route: null },
-  ];
+  // Current active tab route name
+  const activeRoute = state?.routes?.[state?.index]?.name;
 
-  const renderIcon = (key, isActive) => {
-    const color = isActive ? LIME : 'rgba(255,255,255,0.4)';
+  const handleTabPress = (route) => {
+    if (!route) return; // placeholder tab (Habits)
+    if (route === activeRoute) return; // already here
+    navigation.navigate(route);
+  };
 
-    switch (key) {
-      case 'home':
-        return (
-          <View style={st.iconWrap}>
-            <HomeIcon size={20} color={color} />
-          </View>
-        );
-      case 'habits':
-        return (
-          <View style={st.iconWrap}>
-            <HeartIcon size={20} color={color} />
-          </View>
-        );
-      case 'meals':
-        return (
-          <View style={st.iconWrap}>
-            <SaladIcon size={20} color={color} />
-          </View>
-        );
-      case 'todo':
-        return (
-          <View style={st.iconWrap}>
-            <BellIcon size={20} color={color} />
-          </View>
-        );
-      default:
-        return null;
+  const handlePlusPress = () => {
+    // FoodScanner lives in the parent Stack above the Tab Navigator
+    const parent = navigation.getParent?.();
+    if (parent) {
+      parent.navigate('FoodScanner');
+    } else {
+      navigation.navigate('FoodScanner');
     }
   };
 
   return (
     <View style={[st.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       <View style={st.pill}>
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.key;
+        {TABS.map((tab) => {
+          const isActive = tab.route === activeRoute;
+          const color = isActive ? LIME : 'rgba(255,255,255,0.4)';
           return (
             <TouchableOpacity
               key={tab.key}
               style={st.tab}
-              activeOpacity={0.7}
-              onPress={() => {
-                if (tab.route && tab.route !== navigation.getState()?.routes?.[navigation.getState()?.index]?.name) {
-                  navigation.navigate(tab.route);
-                }
-              }}
+              activeOpacity={tab.route ? 0.7 : 1}
+              onPress={() => handleTabPress(tab.route)}
             >
-              {renderIcon(tab.key, isActive)}
+              <View style={st.iconWrap}>{renderIcon(tab.key, color)}</View>
               <Text style={isActive ? st.labelActive : st.label}>{tab.label}</Text>
             </TouchableOpacity>
           );
         })}
 
-        {/* + Button */}
-        <TouchableOpacity
-          style={st.plusBtn}
-          onPress={() => navigation.navigate('FoodScanner')}
-          activeOpacity={0.85}
-        >
+        {/* + Button → FoodScanner */}
+        <TouchableOpacity style={st.plusBtn} onPress={handlePlusPress} activeOpacity={0.85}>
           <Text style={st.plusIcon}>+</Text>
         </TouchableOpacity>
       </View>
@@ -120,3 +110,4 @@ const st = StyleSheet.create({
 });
 
 export default BottomNavBar;
+

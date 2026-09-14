@@ -1,28 +1,50 @@
 import React, { useContext, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  StatusBar, ActivityIndicator, Alert, Dimensions,
+  StatusBar, ActivityIndicator, Alert, Dimensions, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
+import { ChevronLeft, Flame, Check, Utensils, Sun, Moon, Coffee } from 'lucide-react-native';
 import { DietContext } from '../context/DietContext';
-import { COLORS } from '../theme';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const NUTRI_COLORS = { A: '#16A34A', B: '#2563EB', C: '#F59E0B', D: '#EA580C', E: '#EF4444' };
 const NUTRI_LABELS = { A: 'Excellent Choice', B: 'Balanced Meal', C: 'Moderate', D: 'Less Healthy', E: 'Poor Choice' };
 
-const MacroRing = ({ label, value, target, color, size = 80 }) => {
-  const pct = target > 0 ? Math.min(value / target, 1) : 0;
+// ── Reusable Circular SVG Progress Ring (12 o'clock, clockwise) ──
+const CircularRing = ({ percentage = 0, size = 62, strokeWidth = 5.5, color = '#E05A27', trackColor = '#EFECE6', children }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (Math.min(Math.max(percentage, 0), 100) / 100) * circumference;
+
   return (
-    <View style={{ alignItems: 'center' }}>
-      <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-        <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 6, borderColor: '#E2E8F0' }} />
-        <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 6, borderColor: 'transparent', borderTopColor: color, borderRightColor: pct > 0.25 ? color : 'transparent', borderBottomColor: pct > 0.5 ? color : 'transparent', borderLeftColor: pct > 0.75 ? color : 'transparent', transform: [{ rotate: '-90deg' }] }} />
-        <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.dietTextPrimary }}>{Math.round(pct * 100)}%</Text>
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={trackColor}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+        />
+      </Svg>
+      <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+        {children}
       </View>
-      <Text style={{ fontSize: 12, fontWeight: '600', color, marginTop: 6 }}>{label}</Text>
-      <Text style={{ fontSize: 10, color: COLORS.dietTextSecondary }}>{Math.round(value)}g</Text>
     </View>
   );
 };
@@ -41,7 +63,10 @@ const MealNutritionDetailScreen = ({ route, navigation }) => {
       <View style={[s.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ fontSize: 48, marginBottom: 16 }}>🍽️</Text>
         <Text style={s.errText}>No nutrition data available</Text>
-        <TouchableOpacity style={{ marginTop: 20, padding: 14, backgroundColor: COLORS.dietAccent, borderRadius: 12 }} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 14, backgroundColor: '#1C1C24', borderRadius: 14 }}
+          onPress={() => navigation.goBack()}
+        >
           <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -49,23 +74,56 @@ const MealNutritionDetailScreen = ({ route, navigation }) => {
   }
 
   const n = nutrition;
-  const targets = (dashboard && dashboard.targets) || { calories: 2000, protein: 150, carbs: 250, fat: 65, fiber: 30, sugar: 50, sodium: 2300 };
-  const consumed = (dashboard && dashboard.consumed) || { calories: 0 };
-  const scoreColor = NUTRI_COLORS[n.nutriScore] || NUTRI_COLORS.C;
-  const scoreLabel = NUTRI_LABELS[n.nutriScore] || 'Moderate';
+  const targets = (dashboard && dashboard.targets) || { calories: 2000, protein: 115, carbs: 250, fat: 65, fiber: 30, sugar: 50, sodium: 2300 };
+  const consumed = (dashboard && dashboard.consumed) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+  const scoreLetter = (n.nutriScore || 'B').toUpperCase();
+  const scoreLabel = NUTRI_LABELS[scoreLetter] || 'Balanced meal';
+
+  // Percentage calculations
+  const calVal = Number(n.calories) || 0;
+  const calPct = Math.round((calVal / targets.calories) * 100);
+
+  const proteinVal = Number(n.protein) || 0;
+  const proteinPct = Math.round((proteinVal / targets.protein) * 100);
+
+  const carbsVal = Number(n.carbs) || 0;
+  const carbsPct = Math.round((carbsVal / targets.carbs) * 100);
+
+  const fatVal = Number(n.fat) || 0;
+  const fatPct = Math.round((fatVal / targets.fat) * 100);
+
+  const fiberVal = Number(n.fiber) || 0;
+  const fiberPct = Math.round((fiberVal / targets.fiber) * 100);
+
+  const sugarVal = Number(n.sugar) || 0;
+  const sugarPct = Math.round((sugarVal / targets.sugar) * 100);
+
+  const sodiumVal = Number(n.sodium) || 0;
+  const sodiumPct = Math.round((sodiumVal / targets.sodium) * 100);
+
+  // Meal Image Source
+  const imageSource = imageBase64
+    ? (imageBase64.startsWith('data:') ? { uri: imageBase64 } : { uri: `data:image/jpeg;base64,${imageBase64}` })
+    : { uri: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1000&q=80' };
 
   const handleLogMeal = async () => {
     try {
       const result = await logMeal({
-        name: n.name || 'Scanned Meal', mealType: selectedMealType || 'snack',
-        calories: Number(n.calories) || 0,
-        protein: Number(n.protein) || 0, carbs: Number(n.carbs) || 0,
-        fat: Number(n.fat) || 0, fiber: Number(n.fiber) || 0,
-        sugar: Number(n.sugar) || 0, sodium: Number(n.sodium) || 0,
-        nutriScore: n.nutriScore || 'C',
+        name: n.name || 'Scanned Meal',
+        mealType: selectedMealType || 'snack',
+        calories: calVal,
+        protein: proteinVal,
+        carbs: carbsVal,
+        fat: fatVal,
+        fiber: fiberVal,
+        sugar: sugarVal,
+        sodium: sodiumVal,
+        nutriScore: scoreLetter,
         ingredients: Array.isArray(n.ingredients) ? n.ingredients : [],
         imageBase64: imageBase64 || null,
       });
+
       if (result && result.success) {
         setLogged(true);
         Alert.alert('Meal Logged! 🎉', `${n.name || 'Meal'} has been added to your daily log.`, [
@@ -79,199 +137,551 @@ const MealNutritionDetailScreen = ({ route, navigation }) => {
     }
   };
 
+  const formattedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   return (
     <View style={s.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.dietBg} />
-      <ScrollView 
-        style={s.scroll} 
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
+      <ScrollView
+        style={s.scroll}
+        bounces={false}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 30) }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 30, 40) }}
       >
+        {/* ═══ 1. Top Food Image Banner ═══ */}
+        <View style={s.imageBannerContainer}>
+          <Image source={imageSource} style={s.foodImage} resizeMode="cover" />
 
-        {/* Back Button */}
-        <View style={[s.topBar, { marginTop: Math.max(insets.top + 8, 16) }]}>
-          <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={s.backText}>← Back</Text>
+          {/* Top Floating Back Button */}
+          <TouchableOpacity
+            style={[s.floatingBackBtn, { top: Math.max(insets.top, 16) + 8 }]}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <ChevronLeft size={24} color="#1C1C24" strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={s.topTitle}>Scan Result</Text>
-          <View style={{ width: 60 }} />
-        </View>
 
-        {/* Food Image Preview */}
-        <View style={s.imagePreview}>
-          <Text style={s.previewEmoji}>{n.mealType === 'breakfast' ? '🌅' : n.mealType === 'lunch' ? '🥗' : n.mealType === 'dinner' ? '🍽️' : '🍎'}</Text>
-          <View style={[s.nutriBadge, { backgroundColor: scoreColor + '18', borderColor: scoreColor }]}>
-            <Text style={[s.nutriBadgeText, { color: scoreColor }]}>{n.nutriScore} — {scoreLabel}</Text>
-          </View>
-        </View>
-
-        {/* Meal Info */}
-        <View style={s.infoCard}>
-          <Text style={s.mealName}>{n.name}</Text>
-          <View style={s.infoRow}>
-            <Text style={s.infoTime}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-            {n.confidence && <Text style={s.infoConf}>{n.confidence}% confidence</Text>}
-          </View>
-          <View style={s.calBigRow}>
-            <Text style={s.calBig}>{n.calories}</Text>
-            <Text style={s.calUnit}>kcal</Text>
-          </View>
-        </View>
-
-        {/* Meal Category Selector */}
-        <View style={s.selectorCard}>
-          <Text style={s.selectorTitle}>Logged As</Text>
-          <View style={s.selectorGrid}>
-            {[
-              { key: 'breakfast', label: 'Breakfast', emoji: '🌅' },
-              { key: 'lunch', label: 'Lunch', emoji: '☀️' },
-              { key: 'dinner', label: 'Dinner', emoji: '🌙' },
-              { key: 'snack', label: 'Snack', emoji: '🍎' },
-            ].map(({ key, label, emoji }) => {
-              const active = selectedMealType === key;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[s.selectorBtn, active && s.selectorBtnActive]}
-                  onPress={() => setSelectedMealType(key)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.selectorEmoji}>{emoji}</Text>
-                  <Text style={[s.selectorText, active && s.selectorTextActive]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Goal Impact */}
-        <View style={s.impactCard}>
-          <Text style={s.impactIcon}>📈</Text>
-          <View style={s.impactInfo}>
-          <Text style={s.impactTitle}>+{Number(n.calories) || 0} kcal added to daily log</Text>
-            <Text style={s.impactDesc}>{Math.round(Number(consumed.calories) || 0)} + {Number(n.calories) || 0} = {Math.round((Number(consumed.calories) || 0) + (Number(n.calories) || 0))} / {targets.calories} kcal</Text>
-          </View>
-        </View>
-
-        {/* Macro Rings */}
-        <View style={s.macroCard}>
-          <Text style={s.sectionTitle}>Macronutrients</Text>
-          <View style={s.ringsRow}>
-            <MacroRing label="Protein" value={n.protein} target={targets.protein} color={COLORS.dietProtein} />
-            <MacroRing label="Carbs" value={n.carbs} target={targets.carbs} color={COLORS.dietCarbs} />
-            <MacroRing label="Fat" value={n.fat} target={targets.fat} color={COLORS.dietFat} />
-          </View>
-        </View>
-
-        {/* Micro nutrients */}
-        <View style={s.microCard}>
-          <Text style={s.sectionTitle}>Micronutrients</Text>
-          <View style={s.microRow}>
-            <View style={s.microItem}>
-              <Text style={[s.microVal, { color: COLORS.dietFiber }]}>{n.fiber}g</Text>
-              <Text style={s.microLabel}>Fiber</Text>
-            </View>
-            <View style={s.microItem}>
-              <Text style={[s.microVal, { color: COLORS.dietSugar }]}>{n.sugar}g</Text>
-              <Text style={s.microLabel}>Sugar</Text>
-            </View>
-            <View style={s.microItem}>
-              <Text style={[s.microVal, { color: COLORS.dietSodium }]}>{n.sodium}mg</Text>
-              <Text style={s.microLabel}>Sodium</Text>
+          {/* Nutri-Score Bottom Right Overlay Badge */}
+          <View style={s.nutriBadgeContainer}>
+            <Text style={s.nutriBadgeLetter}>{scoreLetter}</Text>
+            <View style={s.nutriBadgeTextWrap}>
+              <Text style={s.nutriBadgeHeader}>NUTRI-SCORE</Text>
+              <Text style={s.nutriBadgeTitle}>{scoreLabel}</Text>
             </View>
           </View>
         </View>
 
-        {/* Ingredients */}
-        {n.ingredients && n.ingredients.length > 0 && (
-          <View style={s.ingredCard}>
-            <Text style={s.sectionTitle}>Detected Ingredients</Text>
-            <View style={s.chipRow}>
-              {n.ingredients.map((ing, i) => (
-                <View key={i} style={s.chip}><Text style={s.chipText}>{ing}</Text></View>
-              ))}
+        {/* ═══ 2. Sliding White Sheet Card ═══ */}
+        <View style={s.sheetCard}>
+          {/* Handle bar */}
+          <View style={s.handleBar} />
+
+          {/* Timestamp Subtitle */}
+          <Text style={s.identifiedTime}>IDENTIFIED • {formattedTime}</Text>
+
+          {/* Main Dish Name */}
+          <Text style={s.dishTitle}>{n.name}</Text>
+
+          {/* ═══ 3. Calories Summary Card ═══ */}
+          <View style={s.cardBox}>
+            <View style={s.calRowTop}>
+              {/* Flame Ring */}
+              <CircularRing percentage={calPct} size={64} strokeWidth={6} color="#E05A27" trackColor="#F0ECE6">
+                <Flame size={24} color="#E05A27" fill="#E05A27" />
+              </CircularRing>
+
+              {/* Calorie Stats */}
+              <View style={s.calStats}>
+                <View style={s.calNumberRow}>
+                  <Text style={s.calMainNum}>{calVal}</Text>
+                  <Text style={s.calKcalUnit}>kcal</Text>
+                </View>
+                <Text style={s.calGoalDesc}>{calPct}% of daily goal • {targets.calories} kcal</Text>
+              </View>
+            </View>
+
+            {/* Dual Track Progress Bar */}
+            <View style={s.barTrackContainer}>
+              <View
+                style={[
+                  s.barTrackConsumed,
+                  { width: `${Math.min(((consumed.calories) / targets.calories) * 100, 100)}%` },
+                ]}
+              />
+              <View
+                style={[
+                  s.barTrackNewMeal,
+                  { width: `${Math.min((calVal / targets.calories) * 100, 100)}%` },
+                ]}
+              />
+            </View>
+
+            {/* Bar Footer Labels */}
+            <View style={s.barFooterRow}>
+              <Text style={s.barFooterLeft}>logged {Math.round(consumed.calories)}</Text>
+              <Text style={s.barFooterCenter}>+{calVal}</Text>
+              <Text style={s.barFooterRight}>{Math.round(consumed.calories + calVal)}/{targets.calories}</Text>
             </View>
           </View>
-        )}
 
-        {/* Log Button */}
-        <TouchableOpacity
-          style={[s.logBtn, logged && s.logBtnDone, isLogging && { opacity: 0.7 }]}
-          onPress={handleLogMeal} disabled={isLogging || logged} activeOpacity={0.8}>
-          {isLogging ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={s.logBtnText}>{logged ? '✓ Meal Logged' : '🍽️ Log This Meal'}</Text>
+          {/* ═══ 4. Macronutrients Grid (3 Columns) ═══ */}
+          <View style={s.gridRow}>
+            {/* Protein */}
+            <View style={s.macroTile}>
+              <CircularRing percentage={proteinPct} size={54} strokeWidth={5} color="#78C800" trackColor="#EFECE6">
+                <Text style={s.ringPctText}>{proteinPct}%</Text>
+              </CircularRing>
+              <Text style={s.macroLabel}>PROTEIN</Text>
+              <Text style={s.macroSubVal}>{proteinPct}%</Text>
+              <Text style={s.macroGoalText}>of {targets.protein}g goal</Text>
+            </View>
+
+            {/* Carbs */}
+            <View style={s.macroTile}>
+              <CircularRing percentage={carbsPct} size={54} strokeWidth={5} color="#818CF8" trackColor="#EFECE6">
+                <Text style={s.ringPctText}>{carbsPct}%</Text>
+              </CircularRing>
+              <Text style={s.macroLabel}>CARBS</Text>
+              <Text style={s.macroSubVal}>{carbsPct}%</Text>
+              <Text style={s.macroGoalText}>of {targets.carbs}g goal</Text>
+            </View>
+
+            {/* Fat */}
+            <View style={s.macroTile}>
+              <CircularRing percentage={fatPct} size={54} strokeWidth={5} color="#F87171" trackColor="#EFECE6">
+                <Text style={s.ringPctText}>{fatPct}%</Text>
+              </CircularRing>
+              <Text style={s.macroLabel}>FAT</Text>
+              <Text style={s.macroSubVal}>{fatPct}%</Text>
+              <Text style={s.macroGoalText}>of {targets.fat}g goal</Text>
+            </View>
+          </View>
+
+          {/* ═══ 5. Micronutrients Grid (3 Columns) ═══ */}
+          <View style={[s.gridRow, { marginTop: 10 }]}>
+            {/* Fiber */}
+            <View style={s.macroTile}>
+              <CircularRing percentage={fiberPct} size={50} strokeWidth={4.5} color="#34D399" trackColor="#EFECE6">
+                <Text style={s.ringMicroVal}>{fiberVal}g</Text>
+              </CircularRing>
+              <Text style={s.macroLabel}>FIBER</Text>
+              <Text style={s.macroGoalText}>of {targets.fiber}g goal</Text>
+            </View>
+
+            {/* Sugar */}
+            <View style={s.macroTile}>
+              <CircularRing percentage={sugarPct} size={50} strokeWidth={4.5} color="#FBBF24" trackColor="#EFECE6">
+                <Text style={s.ringMicroVal}>{sugarVal}g</Text>
+              </CircularRing>
+              <Text style={s.macroLabel}>SUGAR</Text>
+              <Text style={s.macroGoalText}>of {targets.sugar}g limit</Text>
+            </View>
+
+            {/* Sodium */}
+            <View style={s.macroTile}>
+              <CircularRing percentage={sodiumPct} size={50} strokeWidth={4.5} color="#60A5FA" trackColor="#EFECE6">
+                <Text style={s.ringMicroVal}>{sodiumVal}</Text>
+              </CircularRing>
+              <Text style={s.macroLabel}>SODIUM</Text>
+              <Text style={s.macroGoalText}>of {targets.sodium}mg limit</Text>
+            </View>
+          </View>
+
+          {/* ═══ 6. Logged As (Meal Type Picker) ═══ */}
+          <View style={[s.cardBox, { marginTop: 14 }]}>
+            <Text style={s.cardBoxHeader}>LOG MEAL AS</Text>
+            <View style={s.mealTypeRow}>
+              {[
+                { key: 'breakfast', label: 'Breakfast', icon: Sun },
+                { key: 'lunch', label: 'Lunch', icon: Utensils },
+                { key: 'dinner', label: 'Dinner', icon: Moon },
+                { key: 'snack', label: 'Snack', icon: Coffee },
+              ].map(({ key, label, icon: IconComponent }) => {
+                const active = selectedMealType === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[s.typeChip, active && s.typeChipActive]}
+                    onPress={() => setSelectedMealType(key)}
+                    activeOpacity={0.7}
+                  >
+                    <IconComponent size={14} color={active ? '#1C1C24' : '#8A857B'} />
+                    <Text style={[s.typeChipText, active && s.typeChipTextActive]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ═══ 7. Detected Ingredients ═══ */}
+          {n.ingredients && n.ingredients.length > 0 && (
+            <View style={[s.cardBox, { marginTop: 12 }]}>
+              <Text style={s.cardBoxHeader}>DETECTED INGREDIENTS</Text>
+              <View style={s.ingredRow}>
+                {n.ingredients.map((ing, idx) => (
+                  <View key={idx} style={s.ingredChip}>
+                    <Text style={s.ingredChipText}>{ing}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
           )}
-        </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+          {/* ═══ 8. Log Meal Action Button ═══ */}
+          <TouchableOpacity
+            style={[s.mainActionBtn, logged && s.mainActionBtnDone, isLogging && { opacity: 0.7 }]}
+            onPress={handleLogMeal}
+            disabled={isLogging || logged}
+            activeOpacity={0.85}
+          >
+            {isLogging ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : logged ? (
+              <View style={s.btnContent}>
+                <Check size={20} color="#FFFFFF" strokeWidth={3} />
+                <Text style={s.mainActionBtnText}>Meal Logged to Dashboard</Text>
+              </View>
+            ) : (
+              <Text style={s.mainActionBtnText}>Log Meal to Dashboard</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.dietBg },
-  scroll: { flex: 1, paddingHorizontal: 20 },
-  errText: { color: COLORS.dietTextSecondary, fontSize: 16, textAlign: 'center', marginTop: 100 },
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF9F5',
+  },
+  scroll: {
+    flex: 1,
+  },
+  errText: {
+    color: '#8A857B',
+    fontSize: 16,
+    textAlign: 'center',
+  },
 
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 48, marginBottom: 16 },
-  backBtn: { padding: 8 },
-  backText: { color: COLORS.dietAccent, fontSize: 16, fontWeight: '600' },
-  topTitle: { fontSize: 17, fontWeight: '700', color: COLORS.dietTextPrimary },
+  /* Top Food Image Banner */
+  imageBannerContainer: {
+    height: height * 0.42,
+    width: width,
+    position: 'relative',
+    backgroundColor: '#1C1C24',
+  },
+  foodImage: {
+    width: '100%',
+    height: '100%',
+  },
+  floatingBackBtn: {
+    position: 'absolute',
+    left: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    zIndex: 10,
+  },
+  nutriBadgeContainer: {
+    position: 'absolute',
+    bottom: 36,
+    right: 18,
+    backgroundColor: 'rgba(18, 18, 24, 0.88)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  nutriBadgeLetter: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontStyle: 'italic',
+  },
+  nutriBadgeTextWrap: {
+    justifyContent: 'center',
+  },
+  nutriBadgeHeader: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1.2,
+  },
+  nutriBadgeTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 1,
+  },
 
-  imagePreview: { height: 180, backgroundColor: COLORS.dietCard, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: COLORS.dietCardBorder, position: 'relative', shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  previewEmoji: { fontSize: 64 },
-  nutriBadge: { position: 'absolute', top: 12, right: 12, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
-  nutriBadgeText: { fontSize: 12, fontWeight: '700' },
+  /* Sliding White Card Sheet */
+  sheetCard: {
+    backgroundColor: '#FAF9F5',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  handleBar: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D4D0C7',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  identifiedTime: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8A857B',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  dishTitle: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: '#1C1C24',
+    lineHeight: 29,
+    marginBottom: 18,
+  },
 
-  infoCard: { backgroundColor: COLORS.dietCard, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: COLORS.dietCardBorder, shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  mealName: { fontSize: 22, fontWeight: '700', color: COLORS.dietTextPrimary, marginBottom: 8 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  infoTag: { backgroundColor: COLORS.dietAccentBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, color: COLORS.dietAccentText, fontSize: 12, fontWeight: '700', textTransform: 'capitalize', overflow: 'hidden' },
-  infoTime: { color: COLORS.dietTextSecondary, fontSize: 12 },
-  infoConf: { color: COLORS.dietTextMuted, fontSize: 11 },
-  calBigRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  calBig: { fontSize: 42, fontWeight: '800', color: COLORS.dietAccent },
-  calUnit: { fontSize: 16, color: COLORS.dietTextSecondary, fontWeight: '600' },
+  /* Summary Card Boxes */
+  cardBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  calRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  calStats: {
+    flex: 1,
+  },
+  calNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  calMainNum: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#1C1C24',
+    letterSpacing: -0.5,
+  },
+  calKcalUnit: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#666666',
+  },
+  calGoalDesc: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 2,
+  },
 
-  // Selector
-  selectorCard: { backgroundColor: COLORS.dietCard, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: COLORS.dietCardBorder, shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  selectorTitle: { fontSize: 14, fontWeight: '700', color: COLORS.dietTextSecondary, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 },
-  selectorGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
-  selectorBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.dietSurface, borderRadius: 12, paddingVertical: 10, borderWidth: 1, borderColor: COLORS.dietCardBorder },
-  selectorBtnActive: { backgroundColor: COLORS.dietAccentBg, borderColor: COLORS.dietAccent },
-  selectorEmoji: { fontSize: 18, marginBottom: 4 },
-  selectorText: { fontSize: 12, fontWeight: '600', color: COLORS.dietTextSecondary },
-  selectorTextActive: { color: COLORS.dietAccentText, fontWeight: '700' },
+  /* Dual Progress Track Bar */
+  barTrackContainer: {
+    height: 6,
+    backgroundColor: '#EFECE6',
+    borderRadius: 3,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  barTrackConsumed: {
+    height: '100%',
+    backgroundColor: '#8A857B',
+    borderRadius: 3,
+  },
+  barTrackNewMeal: {
+    height: '100%',
+    backgroundColor: '#E05A27',
+    borderRadius: 3,
+  },
+  barFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  barFooterLeft: {
+    fontSize: 11,
+    color: '#8A857B',
+    fontWeight: '500',
+  },
+  barFooterCenter: {
+    fontSize: 11,
+    color: '#E05A27',
+    fontWeight: '700',
+  },
+  barFooterRight: {
+    fontSize: 11,
+    color: '#1C1C24',
+    fontWeight: '700',
+  },
 
-  impactCard: { flexDirection: 'row', backgroundColor: COLORS.dietAccentBg, borderRadius: 16, padding: 16, marginBottom: 12, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: COLORS.dietAccent + '33' },
-  impactIcon: { fontSize: 24 },
-  impactInfo: { flex: 1 },
-  impactTitle: { fontSize: 14, fontWeight: '700', color: COLORS.dietAccentText },
-  impactDesc: { fontSize: 12, color: COLORS.dietTextSecondary, marginTop: 2 },
+  /* Grid Layout (3 Columns) */
+  gridRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  macroTile: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  ringPctText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1C1C24',
+  },
+  ringMicroVal: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1C1C24',
+  },
+  macroLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1C1C24',
+    letterSpacing: 0.6,
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  macroSubVal: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8A857B',
+  },
+  macroGoalText: {
+    fontSize: 10,
+    color: '#8A857B',
+    textAlign: 'center',
+  },
 
-  macroCard: { backgroundColor: COLORS.dietCard, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: COLORS.dietCardBorder, shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.dietTextPrimary, marginBottom: 16 },
-  ringsRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  /* Logged As Picker */
+  cardBoxHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8A857B',
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  mealTypeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  typeChip: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FAF9F5',
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+  },
+  typeChipActive: {
+    backgroundColor: '#C8FF00',
+    borderColor: '#C8FF00',
+  },
+  typeChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8A857B',
+  },
+  typeChipTextActive: {
+    color: '#1C1C24',
+    fontWeight: '700',
+  },
 
-  microCard: { backgroundColor: COLORS.dietCard, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: COLORS.dietCardBorder, shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  microRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  microItem: { alignItems: 'center' },
-  microVal: { fontSize: 20, fontWeight: '800' },
-  microLabel: { fontSize: 11, color: COLORS.dietTextSecondary, marginTop: 4 },
+  /* Ingredients */
+  ingredRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  ingredChip: {
+    backgroundColor: '#FAF9F5',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+  },
+  ingredChipText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#1C1C24',
+  },
 
-  ingredCard: { backgroundColor: COLORS.dietCard, borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: COLORS.dietCardBorder, shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { backgroundColor: COLORS.dietSurface, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: COLORS.dietCardBorder },
-  chipText: { color: COLORS.dietTextPrimary, fontSize: 12, fontWeight: '500' },
-
-  logBtn: { backgroundColor: COLORS.dietAccent, borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 8, shadowColor: COLORS.dietAccent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
-  logBtnDone: { backgroundColor: COLORS.dietScoreGood },
-  logBtnText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  /* Main Action Button */
+  mainActionBtn: {
+    backgroundColor: '#1C1C24',
+    borderRadius: 18,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 18,
+    shadowColor: '#1C1C24',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  mainActionBtnDone: {
+    backgroundColor: '#16A34A',
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mainActionBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
 
 export default MealNutritionDetailScreen;

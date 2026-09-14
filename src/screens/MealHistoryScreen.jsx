@@ -6,7 +6,6 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DietContext } from '../context/DietContext';
-import BottomNavBar from '../components/BottomNavBar';
 
 const { width } = Dimensions.get('window');
 const LIME = '#C8FF00';
@@ -205,9 +204,6 @@ const MealHistoryScreen = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
-
-      {/* ═══ Bottom Nav ═══ */}
-      <BottomNavBar activeTab="meals" />
     </View>
   );
 };

@@ -1,35 +1,50 @@
 import React, { useContext, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  StatusBar, RefreshControl, Dimensions, Modal, Pressable
+  StatusBar, RefreshControl, Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
 import { DietContext } from '../context/DietContext';
 import { COLORS } from '../theme';
-import BottomNavBar from '../components/BottomNavBar';
+import Svg, { Circle } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-// ── Circular Progress Ring ──────────────────────────
+// ── Circular Progress Ring (Vector SVG, 12 o'clock clockwise) ──────────
 const CircleProgress = ({ size, strokeWidth, progress, color, bgColor, children }) => {
   const p = Math.min(Math.max(progress, 0), 1);
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  const strokeDashoffset = c * (1 - p);
+
   return (
     <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-      <View style={{ position: 'absolute', width: size, height: size }}>
-        <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: bgColor || 'rgba(255,255,255,0.15)' }} />
-      </View>
-      <View style={{ position: 'absolute', width: size, height: size, transform: [{ rotate: '-90deg' }] }}>
-        <View style={{
-          width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth,
-          borderColor: 'transparent', borderTopColor: color,
-          borderRightColor: p > 0.25 ? color : 'transparent',
-          borderBottomColor: p > 0.5 ? color : 'transparent',
-          borderLeftColor: p > 0.75 ? color : 'transparent',
-        }} />
-      </View>
+      <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={bgColor || 'rgba(255,255,255,0.15)'}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        {p > 0 && (
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={c}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+          />
+        )}
+      </Svg>
       {children}
     </View>
   );
@@ -44,20 +59,23 @@ const CARD_BG = '#FFFFFF';
 
 const DietDashboardScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { dashboard, fetchDashboard } = useContext(DietContext);
   const [refreshing, setRefreshing] = useState(false);
-  const [profileModalVisible, setProfileModalVisible] = useState(false);
 
   // Current day index (Mon=0 ... Sun=6)
   const today = new Date();
   const activeDay = today.getDay() === 0 ? 6 : today.getDay() - 1;
 
-  useFocusEffect(useCallback(() => { fetchDashboard(); }, [fetchDashboard]));
+  useFocusEffect(useCallback(() => {
+    // Delay so the navigation animation (300ms) finishes before hitting the network
+    const timer = setTimeout(() => fetchDashboard(), 350);
+    return () => clearTimeout(timer);
+  }, [fetchDashboard]));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboard();
+    await fetchDashboard({ force: true }); // always hit network on manual pull-to-refresh
     setRefreshing(false);
   };
 
@@ -65,7 +83,7 @@ const DietDashboardScreen = ({ navigation }) => {
   const consumed = dashboard.consumed || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 };
   const meals = Array.isArray(dashboard.meals) ? dashboard.meals : [];
   const habits = Array.isArray(dashboard.habits) ? dashboard.habits : [];
-  const healthScore = Number(dashboard.healthScore) || 30;
+  const healthScore = Number(dashboard.healthScore) || 0;
   const userName = dashboard.userName || '';
   const calPct = targets.calories > 0 ? (Number(consumed.calories) || 0) / targets.calories : 0;
   const completedHabits = habits.filter(h => h.completed).length;
@@ -90,7 +108,7 @@ const DietDashboardScreen = ({ navigation }) => {
           <View style={s.headerRight}>
             <TouchableOpacity
               style={s.avatarCircle}
-              onPress={() => setProfileModalVisible(true)}
+              onPress={() => navigation.navigate('Profile')}
               activeOpacity={0.8}
             >
               <Text style={s.avatarText}>{(userName || user?.name || 'U')[0].toUpperCase()}</Text>
@@ -114,21 +132,27 @@ const DietDashboardScreen = ({ navigation }) => {
             </CircleProgress>
           </View>
 
-          {/* Week Strip inside Score Card */}
+          {/* Week Strip with scores below each day */}
           <View style={s.weekRow}>
-            {DAYS.map((d, i) => (
-              <View
-                key={i}
-                style={[s.weekDayCol, activeDay === i && s.weekDayActive]}
-              >
-                <Text style={[s.weekDayText, activeDay === i && s.weekDayTextActive]}>{d}</Text>
-              </View>
-            ))}
-          </View>
+            {DAYS.map((d, i) => {
+              const isActive = activeDay === i;
+              const weekScores = dashboard.weekScores || [];
+              const scoreVal = weekScores[i];
+              const displayScore = (scoreVal !== undefined && scoreVal !== null && scoreVal > 0)
+                ? scoreVal
+                : (isActive && healthScore > 0 ? healthScore : '-');
 
-          {/* Current day score badge */}
-          <View style={s.dayScoreBadge}>
-            <Text style={s.dayScoreText}>{healthScore}</Text>
+              return (
+                <View key={i} style={s.weekColWrap}>
+                  <View style={[s.weekDayCol, isActive && s.weekDayActive]}>
+                    <Text style={[s.weekDayText, isActive && s.weekDayTextActive]}>{d}</Text>
+                  </View>
+                  <Text style={[s.weekScoreText, isActive && s.weekScoreTextActive]}>
+                    {displayScore}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -217,89 +241,11 @@ const DietDashboardScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* ═══ Today's Meals Full List ═══ */}
-        {meals.length > 0 && (
-          <View style={s.mealsCard}>
-            <View style={s.mealsHeader}>
-              <Text style={s.mealsTitle}>Today's Meals</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('MealHistory')} activeOpacity={0.7}>
-                <Text style={s.historyLink}>View All →</Text>
-              </TouchableOpacity>
-            </View>
-            {meals.map((m, i) => (
-              <View key={m._id || i} style={s.mealItem}>
-                <View style={s.mealIconWrap}>
-                  <Text style={s.mealIcon}>{m.mealType === 'breakfast' ? '🌅' : m.mealType === 'lunch' ? '☀️' : m.mealType === 'dinner' ? '🌙' : '🍎'}</Text>
-                </View>
-                <View style={s.mealInfo}>
-                  <Text style={s.mealName} numberOfLines={1}>{m.name || 'Unnamed Meal'}</Text>
-                  <Text style={s.mealTime}>{(m.mealType || 'meal').charAt(0).toUpperCase() + (m.mealType || 'meal').slice(1)}{m.loggedAt ? ' · ' + new Date(m.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</Text>
-                </View>
-                <Text style={s.mealCal}>{m.calories || 0} kcal</Text>
-              </View>
-            ))}
-          </View>
-        )}
       </ScrollView>
-
-      {/* ═══ Bottom Navigation Bar ═══ */}
-      <BottomNavBar activeTab="home" />
-
-      {/* ═══ Profile Modal ═══ */}
-      <Modal
-        visible={profileModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setProfileModalVisible(false)}
-      >
-        <Pressable style={s.modalOverlay} onPress={() => setProfileModalVisible(false)}>
-          <Pressable style={s.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={s.modalHeader}>
-              <View style={s.modalAvatarCircle}>
-                <Text style={s.modalAvatarText}>{(userName || user?.name || 'U')[0].toUpperCase()}</Text>
-              </View>
-              <View style={s.modalUserInfo}>
-                <Text style={s.modalUserName}>{userName || user?.name || 'User'}</Text>
-                <Text style={s.modalUserEmail}>{user?.email || 'user@example.com'}</Text>
-              </View>
-            </View>
-
-            <View style={s.divider} />
-
-            <Text style={s.menuSectionTitle}>Daily Nutrition Target</Text>
-            <View style={s.profileGrid}>
-              <View style={s.profileMetric}>
-                <Text style={s.metricLabel}>Target Calories</Text>
-                <Text style={s.metricValue}>{targets.calories} kcal</Text>
-              </View>
-              <View style={s.profileMetric}>
-                <Text style={s.metricLabel}>Goal</Text>
-                <Text style={[s.metricValue, { textTransform: 'capitalize' }]}>{user?.healthProfile?.goal || 'Maintain'}</Text>
-              </View>
-            </View>
-
-            <View style={s.divider} />
-
-            <TouchableOpacity
-              style={s.logoutItem}
-              onPress={() => {
-                setProfileModalVisible(false);
-                logout();
-              }}
-            >
-              <Text style={s.logoutIcon}>🚪</Text>
-              <Text style={s.logoutText}>Log Out</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.closeBtn} onPress={() => setProfileModalVisible(false)}>
-              <Text style={s.closeBtnText}>Close</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 };
+
 
 // ── Styles ────────────────────────────────────────────
 const s = StyleSheet.create({
@@ -333,15 +279,14 @@ const s = StyleSheet.create({
   scoreRingText: { fontSize: 13, fontWeight: '800', color: LIME },
 
   // Week strip inside dark card
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 2 },
-  weekDayCol: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
+  weekRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 4 },
+  weekColWrap: { alignItems: 'center', width: 38 },
+  weekDayCol: { width: 34, height: 34, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
   weekDayActive: { backgroundColor: LIME },
-  weekDayText: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.35)' },
+  weekDayText: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
   weekDayTextActive: { color: DARK_BG },
-
-  // Day score badge below strip
-  dayScoreBadge: { alignSelf: 'center', backgroundColor: LIME, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 5, marginTop: -4 },
-  dayScoreText: { fontSize: 14, fontWeight: '800', color: DARK_BG },
+  weekScoreText: { fontSize: 13, fontWeight: '800', color: 'rgba(255,255,255,0.4)', marginTop: 6 },
+  weekScoreTextActive: { color: LIME },
 
   // ─ Calories Card (Lime Green) ─
   calCard: {
@@ -402,29 +347,6 @@ const s = StyleSheet.create({
   taskTime: { fontSize: 11, fontWeight: '600', color: '#94A3B8' },
   emptyTaskText: { fontSize: 13, color: '#94A3B8', fontStyle: 'italic' },
   viewHistoryLink: { fontSize: 12, fontWeight: '700', color: LIME_DIM, marginTop: 8 },
-
-  // ─ Today's Meals Full ─
-  mealsCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  mealsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  mealsTitle: { fontSize: 16, fontWeight: '800', color: '#1A1A2E' },
-  historyLink: { fontSize: 13, fontWeight: '700', color: LIME_DIM },
-  mealItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  mealIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  mealIcon: { fontSize: 18 },
-  mealInfo: { flex: 1 },
-  mealName: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
-  mealTime: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
-  mealCal: { fontSize: 14, fontWeight: '700', color: LIME_DIM },
 
   // ─ Modal / Profile ─
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
