@@ -46,7 +46,7 @@ const MEAL_ICONS = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: 
 
 const MealHistoryScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { fetchHistory } = useContext(DietContext);
+  const { fetchHistory, dashboard, fetchDashboard } = useContext(DietContext);
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [meals, setMeals] = useState([]);
@@ -74,7 +74,10 @@ const MealHistoryScreen = ({ navigation }) => {
 
   useFocusEffect(useCallback(() => {
     loadMeals(selectedDate);
-  }, [selectedDate, loadMeals]));
+    if (!dashboard?.targets?.calories && fetchDashboard) {
+      fetchDashboard();
+    }
+  }, [selectedDate, loadMeals, dashboard?.targets?.calories, fetchDashboard]));
 
   const onSelectDate = (date) => {
     if (!isFuture(date)) {
@@ -95,6 +98,8 @@ const MealHistoryScreen = ({ navigation }) => {
     carbs: acc.carbs + (Number(m.carbs) || 0),
     fat: acc.fat + (Number(m.fat) || 0),
   }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+  const targetCalories = Math.round(Number(dashboard?.targets?.calories) || 2000);
 
   return (
     <View style={[s.container, { paddingTop: Math.max(insets.top, 12) }]}>
@@ -134,7 +139,7 @@ const MealHistoryScreen = ({ navigation }) => {
         {/* ═══ Section Header ═══ */}
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>Your meal</Text>
-          <Text style={s.sectionTotal}>{Math.round(totals.calories)} / 2000 kcal</Text>
+          <Text style={s.sectionTotal}>{Math.round(totals.calories).toLocaleString()} / {targetCalories.toLocaleString()} kcal</Text>
         </View>
 
         {/* ═══ Meal Cards ═══ */}

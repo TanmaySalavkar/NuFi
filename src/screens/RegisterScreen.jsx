@@ -2,11 +2,13 @@ import React, { useState, useContext } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   StatusBar, KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator,
+  ActivityIndicator, Image,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
-import { COLORS, SHADOWS } from '../theme';
-import { NutriTrackLogo, AlertIcon, EyeIcon, EyeOffIcon } from '../components/Icons';
+import { AlertIcon, EyeIcon, EyeOffIcon } from '../components/Icons';
+
+const LIME = '#C8FF00';
+const DARK_BG = '#1A1A2E';
 
 const GOALS = [
   { key: 'lose', label: 'Lose Weight', icon: '🔥', desc: 'Calorie deficit for fat loss' },
@@ -22,7 +24,7 @@ const GENDERS = [
 const StepIndicator = ({ current, total }) => (
   <View style={st.stepRow}>
     {Array.from({ length: total }, (_, i) => (
-      <View key={i} style={[st.stepDot, i === current && st.stepDotActive]}>
+      <View key={i} style={[st.stepDot, i === current && st.stepDotActive, i < current && st.stepDotCompleted]}>
         {i < current ? (
           <Text style={st.stepCheck}>✓</Text>
         ) : (
@@ -89,7 +91,7 @@ const RegisterScreen = ({ navigation }) => {
   const renderStep1 = () => (
     <>
       <Text style={s.cardTitle}>Create Your Account</Text>
-      <Text style={s.cardSub}>Enter your details to get started with personalized nutrition tracking</Text>
+      {/* <Text style={s.cardSub}>Enter your details to get started with personalized nutrition tracking</Text> */}
 
       {error ? (
         <View style={s.errBox}>
@@ -101,7 +103,7 @@ const RegisterScreen = ({ navigation }) => {
       <Text style={s.label}>Full Name</Text>
       <View style={[s.inputWrap, nameFocus && s.inputFocused]}>
         <TextInput
-          style={s.input} placeholder="Enter your full name" placeholderTextColor={COLORS.dietTextMuted}
+          style={s.input} placeholder="Enter your full name" placeholderTextColor="#94A3B8"
           value={name} onChangeText={setName}
           onFocus={() => setNameFocus(true)} onBlur={() => setNameFocus(false)}
           autoCorrect={false}
@@ -111,7 +113,7 @@ const RegisterScreen = ({ navigation }) => {
       <Text style={s.label}>Email Address</Text>
       <View style={[s.inputWrap, emailFocus && s.inputFocused]}>
         <TextInput
-          style={s.input} placeholder="you@example.com" placeholderTextColor={COLORS.dietTextMuted}
+          style={s.input} placeholder="you@example.com" placeholderTextColor="#94A3B8"
           value={email} onChangeText={setEmail}
           onFocus={() => setEmailFocus(true)} onBlur={() => setEmailFocus(false)}
           keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
@@ -121,18 +123,18 @@ const RegisterScreen = ({ navigation }) => {
       <Text style={s.label}>Password</Text>
       <View style={[s.inputWrap, passFocus && s.inputFocused]}>
         <TextInput
-          style={s.input} placeholder="Min 6 characters" placeholderTextColor={COLORS.dietTextMuted}
+          style={s.input} placeholder="Min 6 characters" placeholderTextColor="#94A3B8"
           value={password} onChangeText={setPassword}
           onFocus={() => setPassFocus(true)} onBlur={() => setPassFocus(false)}
           secureTextEntry={!showPassword}
         />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={s.eyeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              {showPassword ? (
-                <EyeIcon size={22} color={COLORS.dietAccent} />
-              ) : (
-                <EyeOffIcon size={22} color="#94A3B8" />
-              )}
-            </TouchableOpacity>
+          {showPassword ? (
+            <EyeIcon size={22} color={DARK_BG} />
+          ) : (
+            <EyeOffIcon size={22} color="#94A3B8" />
+          )}
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={s.primaryBtn} onPress={handleNext} activeOpacity={0.85}>
@@ -144,6 +146,14 @@ const RegisterScreen = ({ navigation }) => {
 
   const renderStep2 = () => (
     <>
+      <TouchableOpacity
+        style={s.topBackBtn}
+        onPress={() => { setStep(0); setError(''); }}
+        activeOpacity={0.7}
+      >
+        <Text style={s.topBackBtnText}>← Back</Text>
+      </TouchableOpacity>
+
       <Text style={s.cardTitle}>Health Profile</Text>
       <Text style={s.cardSub}>Help us calculate your ideal daily nutrition targets</Text>
 
@@ -215,35 +225,39 @@ const RegisterScreen = ({ navigation }) => {
         </TouchableOpacity>
       ))}
 
-      {/* Buttons */}
-      <View style={s.btnRow}>
-        <TouchableOpacity style={s.backBtn} onPress={() => { setStep(0); setError(''); }} activeOpacity={0.7}>
-          <Text style={s.backBtnText}>← Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.primaryBtn, { flex: 1 }, isLoading && { opacity: 0.7 }]}
-          onPress={handleRegister} disabled={isLoading} activeOpacity={0.85}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={s.primaryBtnText}>Create Account</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      {/* Submit Button */}
+      <TouchableOpacity
+        style={[s.primaryBtn, { marginTop: 22 }, isLoading && { opacity: 0.7 }]}
+        onPress={handleRegister}
+        disabled={isLoading}
+        activeOpacity={0.85}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color={LIME} />
+        ) : (
+          <Text style={s.primaryBtnText}>Create Profile</Text>
+        )}
+      </TouchableOpacity>
     </>
   );
 
   return (
     <View style={s.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.dietBg} />
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F7" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[s.scroll, step === 0 && s.scrollStep0]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Branded Header */}
           <View style={s.logoArea}>
-            <View style={s.logoBadge}><NutriTrackLogo size={62} /></View>
-            <Text style={s.appTitle}>NuFi</Text>
-            <Text style={s.appSub}>Smart Diet & Health Companion</Text>
+            <Image
+              source={require('../assets/logo.png')}
+              style={s.logoImage}
+              resizeMode="contain"
+            />
+            <Image
+              source={require('../assets/NuFi-text.png')}
+              style={s.brandTextImage}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Step Indicator */}
@@ -256,7 +270,7 @@ const RegisterScreen = ({ navigation }) => {
 
           {/* Sign In Link */}
           <View style={s.linkRow}>
-            <Text style={s.linkText}>Already have an account? </Text>
+            <Text style={s.linkText}>Already have an account?</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
               <Text style={s.linkAction}>Sign In</Text>
             </TouchableOpacity>
@@ -270,85 +284,112 @@ const RegisterScreen = ({ navigation }) => {
 const st = StyleSheet.create({
   stepRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 40, marginBottom: 24, position: 'relative' },
   stepLine: { position: 'absolute', height: 2, backgroundColor: '#E2E8F0', width: 40, top: '50%' },
-  stepDot: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#E2E8F0', zIndex: 1 },
-  stepDotActive: { backgroundColor: COLORS.dietAccent, borderColor: COLORS.dietAccent },
-  stepNum: { fontSize: 14, fontWeight: '700', color: COLORS.dietTextMuted },
-  stepNumActive: { color: '#FFFFFF' },
-  stepCheck: { fontSize: 14, fontWeight: '700', color: COLORS.dietAccent },
+  stepDot: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#E2E8F0', zIndex: 1 },
+  stepDotActive: { backgroundColor: DARK_BG, borderColor: DARK_BG },
+  stepDotCompleted: { backgroundColor: LIME, borderColor: DARK_BG },
+  stepNum: { fontSize: 14, fontWeight: '700', color: '#94A3B8' },
+  stepNumActive: { color: LIME },
+  stepCheck: { fontSize: 14, fontWeight: '800', color: DARK_BG },
 });
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.dietBg },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 32 },
+  container: { flex: 1, backgroundColor: '#F5F5F7' },
+  scroll: { flexGrow: 1, paddingHorizontal: 22, paddingVertical: 32 },
+  scrollStep0: { paddingTop: 56 },
 
   // Header
   logoArea: { alignItems: 'center', marginBottom: 20 },
-  logoBadge: { marginBottom: 12 },
-  appTitle: { fontSize: 28, fontWeight: '800', color: COLORS.dietTextPrimary, letterSpacing: 0.3 },
-  appSub: { fontSize: 13, fontWeight: '500', color: COLORS.dietTextSecondary, marginTop: 3 },
+  logoImage: {
+    width: 90,
+    height: 74,
+    marginBottom: 12,
+  },
+  brandTextImage: {
+    width: 120,
+    height: 40,
+  },
 
   // Card
   card: {
-    backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24,
-    borderWidth: 1, borderColor: '#E2E8F0',
-    ...SHADOWS.card,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#E8E8EC',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3,
   },
-  cardTitle: { fontSize: 22, fontWeight: '800', color: COLORS.dietTextPrimary, marginBottom: 4 },
-  cardSub: { fontSize: 13, color: COLORS.dietTextSecondary, marginBottom: 20, lineHeight: 19 },
+  topBackBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  topBackBtnText: {
+    color: '#64748B',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  cardTitle: { fontSize: 22, fontWeight: '900', color: DARK_BG, letterSpacing: -0.4, marginBottom: 4 },
+  cardSub: { fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 19 },
 
   // Error
-  errBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#FCA5A5', gap: 10 },
+  errBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#FEE2E2', gap: 10 },
   errText: { color: '#EF4444', fontSize: 13, fontWeight: '600', flex: 1 },
 
   // Labels & Inputs
-  label: { fontSize: 12, fontWeight: '700', color: COLORS.dietTextSecondary, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 10 },
+  label: { fontSize: 11, fontWeight: '700', color: '#64748B', marginBottom: 7, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 10 },
   inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 14, borderWidth: 1.5, borderColor: '#E2E8F0', paddingHorizontal: 16, marginBottom: 4 },
-  inputFocused: { borderColor: COLORS.dietAccent, backgroundColor: '#FFFFFF' },
-  input: { flex: 1, color: COLORS.dietTextPrimary, fontSize: 15, paddingVertical: 14, fontWeight: '500' },
+  inputFocused: { borderColor: DARK_BG, backgroundColor: '#FFFFFF' },
+  input: { flex: 1, color: DARK_BG, fontSize: 15, paddingVertical: 14, fontWeight: '600' },
   eyeBtn: { padding: 4 },
 
   // Section Label (Step 2)
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: COLORS.dietTextPrimary, marginTop: 16, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.6 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: DARK_BG, marginTop: 16, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 },
 
   // Metrics Row
   metricsRow: { flexDirection: 'row', gap: 10 },
   metricCol: { flex: 1 },
-  metricLabel: { fontSize: 11, fontWeight: '600', color: COLORS.dietTextSecondary, marginBottom: 6, textAlign: 'center' },
+  metricLabel: { fontSize: 11, fontWeight: '700', color: '#64748B', marginBottom: 6, textAlign: 'center' },
   metricInput: { backgroundColor: '#F8FAFC', borderRadius: 14, borderWidth: 1.5, borderColor: '#E2E8F0', paddingVertical: 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  metricValue: { fontSize: 18, fontWeight: '700', color: COLORS.dietTextPrimary, textAlign: 'center', paddingVertical: 8, minWidth: 40 },
-  metricUnit: { fontSize: 12, color: COLORS.dietTextMuted, fontWeight: '600', marginLeft: 2 },
+  metricValue: { fontSize: 18, fontWeight: '800', color: DARK_BG, textAlign: 'center', paddingVertical: 8, minWidth: 40 },
+  metricUnit: { fontSize: 12, color: '#94A3B8', fontWeight: '700', marginLeft: 2 },
 
   // Gender
   genderRow: { flexDirection: 'row', gap: 10 },
   genderChip: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1.5, borderColor: '#E2E8F0', alignItems: 'center' },
-  genderChipActive: { backgroundColor: COLORS.dietAccentBg, borderColor: COLORS.dietAccent },
-  genderText: { fontSize: 14, fontWeight: '600', color: COLORS.dietTextSecondary },
-  genderTextActive: { color: COLORS.dietAccentText, fontWeight: '700' },
+  genderChipActive: { backgroundColor: DARK_BG, borderColor: DARK_BG },
+  genderText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
+  genderTextActive: { color: LIME, fontWeight: '800' },
 
   // Goal Cards
   goalCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#F8FAFC', borderWidth: 1.5, borderColor: '#E2E8F0', marginBottom: 8, gap: 12 },
-  goalCardActive: { backgroundColor: COLORS.dietAccentBg, borderColor: COLORS.dietAccent },
+  goalCardActive: { backgroundColor: '#FFFFFF', borderColor: DARK_BG, borderWidth: 2 },
   goalIcon: { fontSize: 24 },
   goalInfo: { flex: 1 },
-  goalLabel: { fontSize: 15, fontWeight: '700', color: COLORS.dietTextPrimary },
-  goalLabelActive: { color: COLORS.dietAccentText },
-  goalDesc: { fontSize: 12, color: COLORS.dietTextSecondary, marginTop: 2 },
+  goalLabel: { fontSize: 15, fontWeight: '700', color: DARK_BG },
+  goalLabelActive: { color: DARK_BG, fontWeight: '800' },
+  goalDesc: { fontSize: 12, color: '#64748B', marginTop: 2 },
   goalRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#CBD5E1', justifyContent: 'center', alignItems: 'center' },
-  goalRadioActive: { borderColor: COLORS.dietAccent },
-  goalRadioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.dietAccent },
+  goalRadioActive: { borderColor: DARK_BG },
+  goalRadioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: DARK_BG },
 
   // Buttons
-  primaryBtn: { flexDirection: 'row', backgroundColor: COLORS.dietAccent, borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20, gap: 8, ...SHADOWS.button },
-  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.3 },
-  primaryBtnArrow: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  btnRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  backBtn: { backgroundColor: '#F1F5F9', borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, justifyContent: 'center', borderWidth: 1, borderColor: '#E2E8F0', marginTop: 20 },
-  backBtnText: { color: COLORS.dietTextSecondary, fontWeight: '600', fontSize: 15 },
+  primaryBtn: { flexDirection: 'row', backgroundColor: DARK_BG, borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20, gap: 8, shadowColor: DARK_BG, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  primaryBtnText: { fontSize: 16, fontWeight: '800', color: LIME, letterSpacing: 0.3 },
+  primaryBtnArrow: { fontSize: 18, fontWeight: '800', color: LIME },
 
   // Footer
-  linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, marginBottom: 20 },
-  linkText: { color: COLORS.dietTextSecondary, fontSize: 14 },
-  linkAction: { color: COLORS.dietAccent, fontSize: 14, fontWeight: '700' },
+  linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24, marginBottom: 20 },
+  linkText: { color: '#64748B', fontSize: 14, fontWeight: '500' },
+  linkAction: { color: DARK_BG, fontSize: 14, fontWeight: '800', marginLeft: 5, textDecorationLine: 'underline' },
 });
 
 export default RegisterScreen;

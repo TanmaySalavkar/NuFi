@@ -20,15 +20,16 @@ import { ArrowLeft, Send, RotateCcw, Bot } from 'lucide-react-native';
 import { AuthContext } from '../context/AuthContext';
 import { COLORS, SHADOWS } from '../theme';
 
-// ── Design tokens matching the rest of the app ────────────────────────────────
-const BG           = COLORS.dietBg;          // '#F8FAFC'
-const CARD         = COLORS.dietCard;        // '#FFFFFF'
-const ACCENT       = COLORS.dietAccent;      // '#16A34A'
-const ACCENT_BG    = COLORS.dietAccentBg;    // '#DCFCE7'
-const TEXT_PRIMARY = COLORS.dietTextPrimary; // '#0F172A'
-const TEXT_SEC     = COLORS.dietTextSecondary;
-const TEXT_MUTED   = COLORS.dietTextMuted;
-const BORDER       = COLORS.dietCardBorder;  // '#E2E8F0'
+// ── Design tokens matching Diet Dashboard & NuFi theme ────────────────────────
+const LIME         = '#C8FF00';
+const LIME_DIM     = '#A8D600';
+const DARK_BG      = '#1A1A2E';
+const BG           = '#F5F5F7';
+const CARD         = '#FFFFFF';
+const TEXT_PRIMARY = '#1A1A2E';
+const TEXT_SEC     = '#64748B';
+const TEXT_MUTED   = '#94A3B8';
+const BORDER       = '#E8E8EC';
 
 // ── Suggested prompts shown in empty state ────────────────────────────────────
 const SUGGESTED_PROMPTS = [
@@ -231,7 +232,7 @@ function MessageBubble({ item }) {
     <View style={[s.bubbleWrap, isUser ? s.bubbleRight : s.bubbleLeft]}>
       {!isUser && (
         <View style={s.aiBadge}>
-          <Bot size={14} color={ACCENT} strokeWidth={2.5} />
+          <Bot size={14} color={DARK_BG} strokeWidth={2.5} />
         </View>
       )}
       <View style={[s.bubble, isUser ? s.userBubble : s.aiBubble]}>
@@ -385,7 +386,7 @@ export default function NuFiAIScreen() {
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <View style={s.headerIcon}>
-            <Bot size={18} color={ACCENT} strokeWidth={2.5} />
+            <Bot size={18} color={DARK_BG} strokeWidth={2.5} />
           </View>
           <View>
             <Text style={s.headerTitle}>NuFi AI</Text>
@@ -405,7 +406,7 @@ export default function NuFiAIScreen() {
           >
             <View style={s.emptyWrap}>
               <View style={s.emptyIcon}>
-                <Bot size={32} color={ACCENT} strokeWidth={2} />
+                <Bot size={32} color={DARK_BG} strokeWidth={2} />
               </View>
               <Text style={s.emptyTitle}>How can I help you?</Text>
               <Text style={s.emptySub}>Ask me about your nutrition, meals, or health score.</Text>
@@ -441,7 +442,7 @@ export default function NuFiAIScreen() {
         {/* ── Retry button ── */}
         {messages.some(m => m.error) && !isLoading && (
           <TouchableOpacity style={s.retryBtn} onPress={retryLast} activeOpacity={0.8}>
-            <RotateCcw size={13} color="#FFFFFF" strokeWidth={2.5} />
+            <RotateCcw size={13} color={LIME} strokeWidth={2.5} />
             <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         )}
@@ -468,9 +469,9 @@ export default function NuFiAIScreen() {
           disabled={!inputText.trim() || isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={LIME} />
           ) : (
-            <Send size={17} color="#FFFFFF" strokeWidth={2.5} />
+            <Send size={17} color={(!inputText.trim() || isLoading) ? '#94A3B8' : LIME} strokeWidth={2.5} />
           )}
         </TouchableOpacity>
       </View>
@@ -517,13 +518,13 @@ const s = StyleSheet.create({
   headerIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: ACCENT_BG,
+    borderRadius: 12,
+    backgroundColor: LIME,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: TEXT_PRIMARY },
-  headerSub:   { fontSize: 11, color: TEXT_MUTED, marginTop: 1 },
+  headerTitle: { fontSize: 17, fontWeight: '900', color: TEXT_PRIMARY, letterSpacing: -0.3 },
+  headerSub:   { fontSize: 11, color: TEXT_MUTED, marginTop: 1, fontWeight: '500' },
 
   // Empty / suggestions
   emptyScroll: { flexGrow: 1, justifyContent: 'center' },
@@ -536,33 +537,41 @@ const s = StyleSheet.create({
   emptyIcon: {
     width: 72,
     height: 72,
-    borderRadius: 22,
-    backgroundColor: ACCENT_BG,
+    borderRadius: 24,
+    backgroundColor: LIME,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 18,
-    ...SHADOWS.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 8 },
+  emptyTitle: { fontSize: 22, fontWeight: '900', color: TEXT_PRIMARY, marginBottom: 6, letterSpacing: -0.4 },
   emptySub:   { fontSize: 14, color: TEXT_SEC, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
-  promptsGrid: { width: '100%', gap: 8 },
+  promptsGrid: { width: '100%', gap: 9 },
   promptChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     backgroundColor: CARD,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingVertical: 13,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: BORDER,
-    ...SHADOWS.soft,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   promptEmoji: { fontSize: 16 },
-  promptText:  { fontSize: 14, color: TEXT_PRIMARY, fontWeight: '500', flex: 1 },
+  promptText:  { fontSize: 14, color: TEXT_PRIMARY, fontWeight: '600', flex: 1 },
 
   // Message list
-  listContent: { paddingHorizontal: 12, paddingVertical: 16, gap: 12 },
+  listContent: { paddingHorizontal: 14, paddingVertical: 16, gap: 12 },
 
   // Bubbles
   bubbleWrap:  { flexDirection: 'row', alignItems: 'flex-end', maxWidth: '88%' },
@@ -572,32 +581,34 @@ const s = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: ACCENT_BG,
+    backgroundColor: LIME,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
     marginBottom: 2,
-    borderWidth: 1,
-    borderColor: BORDER,
   },
-  bubble: { borderRadius: 18, paddingVertical: 10, paddingHorizontal: 14 },
-  userBubble: { backgroundColor: ACCENT, borderBottomRightRadius: 4 },
+  bubble: { borderRadius: 20, paddingVertical: 11, paddingHorizontal: 15 },
+  userBubble: { backgroundColor: DARK_BG, borderBottomRightRadius: 4 },
   aiBubble: {
     backgroundColor: CARD,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
     borderColor: BORDER,
-    ...SHADOWS.soft,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  bubbleText: { fontSize: 14, lineHeight: 21 },
-  userText:   { color: '#FFFFFF', fontWeight: '600' },
+  bubbleText: { fontSize: 14.5, lineHeight: 22 },
+  userText:   { color: '#FFFFFF', fontWeight: '500' },
   aiText:     { color: TEXT_PRIMARY },
-  errorLabel: { fontSize: 11, color: COLORS.error, marginTop: 4 },
+  errorLabel: { fontSize: 11, color: COLORS.error, marginTop: 4, fontWeight: '600' },
 
   // Formatted markdown styles
   formattedWrap: { gap: 4 },
-  mdH1: { fontSize: 17, fontWeight: '800', color: TEXT_PRIMARY, marginVertical: 6 },
-  mdH2: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginVertical: 4 },
+  mdH1: { fontSize: 17, fontWeight: '900', color: TEXT_PRIMARY, marginVertical: 6, letterSpacing: -0.3 },
+  mdH2: { fontSize: 16, fontWeight: '800', color: TEXT_PRIMARY, marginVertical: 4, letterSpacing: -0.2 },
   mdH3: { fontSize: 15, fontWeight: '700', color: TEXT_PRIMARY, marginVertical: 4 },
   mdBold: { fontWeight: '700' },
   mdItalic: { fontStyle: 'italic' },
@@ -605,21 +616,21 @@ const s = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 12,
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     color: '#0F172A',
   },
   mdDivider: { height: 1, backgroundColor: BORDER, marginVertical: 8 },
   mdSpacer:  { height: 6 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: 2 },
-  bulletDot: { fontSize: 16, lineHeight: 21, color: ACCENT, marginRight: 8, fontWeight: '700' },
-  numberPrefix: { fontSize: 14, lineHeight: 21, color: ACCENT, marginRight: 6, fontWeight: '700' },
-  bulletBody: { flex: 1, fontSize: 14, lineHeight: 21, color: TEXT_PRIMARY },
+  bulletDot: { fontSize: 16, lineHeight: 22, color: LIME_DIM, marginRight: 8, fontWeight: '800' },
+  numberPrefix: { fontSize: 14, lineHeight: 22, color: LIME_DIM, marginRight: 6, fontWeight: '800' },
+  bulletBody: { flex: 1, fontSize: 14.5, lineHeight: 22, color: TEXT_PRIMARY },
 
   // Typing dots
   typingRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 },
-  dot:        { width: 7, height: 7, borderRadius: 4, backgroundColor: ACCENT },
+  dot:        { width: 7, height: 7, borderRadius: 4, backgroundColor: DARK_BG },
 
   // Retry
   retryBtn: {
@@ -627,13 +638,18 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'center',
-    backgroundColor: ACCENT,
+    backgroundColor: DARK_BG,
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginBottom: 8,
+    shadowColor: DARK_BG,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  retryText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  retryText: { fontSize: 13, fontWeight: '800', color: LIME },
 
   // Input
   inputRow: {
@@ -645,32 +661,35 @@ const s = StyleSheet.create({
     backgroundColor: CARD,
     borderTopWidth: 1,
     borderTopColor: BORDER,
-    ...SHADOWS.soft,
   },
   input: {
     flex: 1,
     minHeight: 44,
     maxHeight: 120,
-    backgroundColor: BG,
+    backgroundColor: '#F8FAFC',
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 14.5,
     color: TEXT_PRIMARY,
-    borderWidth: 1,
-    borderColor: BORDER,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
   sendBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: ACCENT,
+    backgroundColor: DARK_BG,
     justifyContent: 'center',
     alignItems: 'center',
-    ...SHADOWS.button,
+    shadowColor: DARK_BG,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   sendBtnDisabled: {
-    backgroundColor: COLORS.accentLight,
+    backgroundColor: '#E2E8F0',
     shadowOpacity: 0,
     elevation: 0,
   },
