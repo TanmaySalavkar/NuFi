@@ -10,6 +10,7 @@ import FoodScannerScreen from "../screens/FoodScannerScreen";
 import MealNutritionDetailScreen from "../screens/MealNutritionDetailScreen";
 import MealHistoryScreen from "../screens/MealHistoryScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import NuFiAIScreen from "../screens/NuFiAIScreen";
 import BottomNavBar from "../components/BottomNavBar";
 import { COLORS } from "../theme";
 
@@ -67,6 +68,7 @@ const AppStack = () => (
     <Stack.Screen name="Main" component={MainTabs} />
     <Stack.Screen name="FoodScanner" component={FoodScannerScreen} options={{ animation: 'slide_from_bottom' }} />
     <Stack.Screen name="MealNutritionDetail" component={MealNutritionDetailScreen} />
+    <Stack.Screen name="NuFiAI" component={NuFiAIScreen} options={{ animation: 'slide_from_right' }} />
   </Stack.Navigator>
 );
 

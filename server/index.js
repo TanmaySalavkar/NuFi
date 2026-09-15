@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Doctor = require('./models/Doctor');
 const authRoutes = require('./routes/authRoutes');
 const dietRoutes = require('./routes/dietRoutes');
+const chatRoute  = require('./routes/chatRoute');
 
 const mongoUri = process.env.MONGO_URI;
 const PORT = process.env.PORT || 3000;
@@ -42,6 +43,9 @@ app.use('/api/auth', authRoutes);
 
 // Diet routes (dashboard, scan, log, history)
 app.use('/api/diet', dietRoutes);
+
+// NuFi AI chat route
+app.use('/api/chat', chatRoute);
 
 // ── Start Server ────────────────────────────────────
 app.listen(PORT, () => {

@@ -1,16 +1,16 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { UserCircle2 } from 'lucide-react-native';
-import { HomeIcon, HeartIcon, SaladIcon } from './Icons';
+import { UserCircle2, Bot } from 'lucide-react-native';
+import { HomeIcon, SaladIcon } from './Icons';
 
 const LIME = '#C8FF00';
 const DARK_BG = '#1A1A2E';
 
-// Map visual tabs → real tab route names (null = no route / placeholder)
+// Map visual tabs → real tab route names (null = opens via parent stack)
 const TABS = [
   { key: 'home',    label: 'Home',    route: 'DietDashboard' },
-  { key: 'habits',  label: 'Habits',  route: null },
+  { key: 'ai',      label: 'AI',      route: null },
   { key: 'meals',   label: 'Meals',   route: 'MealHistory' },
   { key: 'profile', label: 'Profile', route: 'Profile' },
 ];
@@ -19,7 +19,7 @@ const renderIcon = (key, color) => {
   const props = { size: 20, color, strokeWidth: 2 };
   switch (key) {
     case 'home':    return <HomeIcon    size={20} color={color} />;
-    case 'habits':  return <HeartIcon   size={20} color={color} />;
+    case 'ai':      return <Bot         {...props} />;
     case 'meals':   return <SaladIcon   size={20} color={color} />;
     case 'profile': return <UserCircle2 {...props} />;
     default:        return null;
@@ -33,8 +33,14 @@ const BottomNavBar = ({ state, navigation }) => {
   // Current active tab route name
   const activeRoute = state?.routes?.[state?.index]?.name;
 
-  const handleTabPress = (route) => {
-    if (!route) return; // placeholder tab (Habits)
+  const handleTabPress = (key, route) => {
+    if (key === 'ai') {
+      // NuFiAI lives in the parent Stack above the Tab Navigator
+      const parent = navigation.getParent?.();
+      if (parent) { parent.navigate('NuFiAI'); }
+      return;
+    }
+    if (!route) return;
     if (route === activeRoute) return; // already here
     navigation.navigate(route);
   };
@@ -59,8 +65,8 @@ const BottomNavBar = ({ state, navigation }) => {
             <TouchableOpacity
               key={tab.key}
               style={st.tab}
-              activeOpacity={tab.route ? 0.7 : 1}
-              onPress={() => handleTabPress(tab.route)}
+              activeOpacity={0.7}
+              onPress={() => handleTabPress(tab.key, tab.route)}
             >
               <View style={st.iconWrap}>{renderIcon(tab.key, color)}</View>
               <Text style={isActive ? st.labelActive : st.label}>{tab.label}</Text>
