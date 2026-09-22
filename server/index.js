@@ -6,11 +6,13 @@ const Doctor = require('./models/Doctor');
 const authRoutes = require('./routes/authRoutes');
 const dietRoutes = require('./routes/dietRoutes');
 const chatRoute  = require('./routes/chatRoute');
+const healthConnectRoutes = require('./routes/healthConnectRoutes');
 
 const mongoUri = process.env.MONGO_URI;
 const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
+mongoose.set('strictQuery', false);
 mongoose.connect(mongoUri)
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ Could not connect to MongoDB:', err));
@@ -51,10 +53,22 @@ app.use('/api/diet', dietRoutes);
 // NuFi AI chat route
 app.use('/api/chat', chatRoute);
 
+// Google Health Connect routes (v1 user-scoped encrypted)
+app.use('/api/v1/health-connect', healthConnectRoutes);
+
 // ── Start Server ────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`   Auth:  POST /api/auth/register, POST /api/auth/login, GET /api/auth/me`);
   console.log(`   Diet:  GET /api/diet/dashboard, POST /api/diet/scan, POST /api/diet/log, GET /api/diet/history`);
   console.log(`   Docs:  GET /api/doctors`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n⚠️  Port ${PORT} is already in use!`);
+    console.error(`👉 Run this to free it: kill -9 $(lsof -t -i:${PORT})\n`);
+  } else {
+    console.error('Server error:', err);
+  }
 });

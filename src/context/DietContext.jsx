@@ -32,7 +32,9 @@ export const DietProvider = ({ children }) => {
     if (!force && Date.now() - lastFetchTime.current < CACHE_TTL) return;
     setIsDashboardLoading(true);
     try {
-      const response = await apiClient.get('/api/diet/dashboard');
+      const response = await apiClient.get('/api/diet/dashboard', {
+        params: { timezoneOffset: new Date().getTimezoneOffset() },
+      });
       if (response && response.data) {
         setDashboard(response.data);
         lastFetchTime.current = Date.now();
@@ -89,7 +91,10 @@ export const DietProvider = ({ children }) => {
    */
   const fetchHistory = useCallback(async (date) => {
     try {
-      const params = date ? { date } : {};
+      const params = {
+        timezoneOffset: new Date().getTimezoneOffset(),
+        ...(date ? { date } : {}),
+      };
       const response = await apiClient.get('/api/diet/history', { params });
       return { success: true, meals: response.data.meals };
     } catch (err) {

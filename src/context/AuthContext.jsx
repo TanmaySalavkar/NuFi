@@ -15,6 +15,12 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Automatically attach user device timezone offset (e.g. -330 for IST) to all API requests
+apiClient.interceptors.request.use((config) => {
+  config.headers['x-timezone-offset'] = new Date().getTimezoneOffset();
+  return config;
+});
+
 // Helper with automatic IP fallback (between 10.0.2.2 for emulator and localhost for physical device with adb reverse)
 const postWithFallback = async (endpoint, data) => {
   try {

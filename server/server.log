@@ -1,0 +1,6 @@
+◇ injected env (10) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Server running on port 3000
+   Auth:  POST /api/auth/register, POST /api/auth/login, GET /api/auth/me
+   Diet:  GET /api/diet/dashboard, POST /api/diet/scan, POST /api/diet/log, GET /api/diet/history
+   Docs:  GET /api/doctors
+✅ Connected to MongoDB Atlas

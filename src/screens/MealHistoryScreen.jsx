@@ -139,7 +139,20 @@ const MealHistoryScreen = ({ navigation }) => {
         {/* ═══ Section Header ═══ */}
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>Your meal</Text>
-          <Text style={s.sectionTotal}>{Math.round(totals.calories).toLocaleString()} / {targetCalories.toLocaleString()} kcal</Text>
+          <View style={s.sectionRight}>
+            <TouchableOpacity
+              style={s.addMealHeaderBtn}
+              onPress={() => {
+                const parent = navigation.getParent?.();
+                if (parent) parent.navigate('ManualMealEntry');
+                else navigation.navigate('ManualMealEntry');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={s.addMealHeaderBtnText}>+ Add Meal</Text>
+            </TouchableOpacity>
+            <Text style={s.sectionTotal}>{Math.round(totals.calories).toLocaleString()} / {targetCalories.toLocaleString()} kcal</Text>
+          </View>
         </View>
 
         {/* ═══ Meal Cards ═══ */}
@@ -202,10 +215,38 @@ const MealHistoryScreen = ({ navigation }) => {
             <Text style={s.emptyTitle}>No Meals Logged</Text>
             <Text style={s.emptySub}>
               {isToday(selectedDate)
-                ? 'Tap the + button to scan your first meal today'
+                ? 'Scan your food or add your meal details manually.'
                 : 'No meals were logged on this day'
               }
             </Text>
+
+            {isToday(selectedDate) && (
+              <View style={s.emptyBtnCol}>
+                <TouchableOpacity
+                  style={s.emptyManualBtn}
+                  onPress={() => {
+                    const parent = navigation.getParent?.();
+                    if (parent) parent.navigate('ManualMealEntry');
+                    else navigation.navigate('ManualMealEntry');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.emptyManualBtnText}>✍️ Add Meal Manually</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={s.emptyScanBtn}
+                  onPress={() => {
+                    const parent = navigation.getParent?.();
+                    if (parent) parent.navigate('FoodScanner');
+                    else navigation.navigate('FoodScanner');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.emptyScanBtnText}>📷 Scan with AI Camera</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -296,10 +337,56 @@ const s = StyleSheet.create({
   loadingText: { color: '#94A3B8', fontSize: 14, marginTop: 12 },
 
   // ─ Empty ─
-  emptyState: { alignItems: 'center', paddingTop: 60 },
+  emptyState: { alignItems: 'center', paddingTop: 40 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#94A3B8', marginBottom: 6 },
-  emptySub: { fontSize: 14, color: '#C0C0C0', textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 },
+  emptySub: { fontSize: 14, color: '#94A3B8', textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 },
+
+  // Manual meal button styles
+  sectionRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addMealHeaderBtn: {
+    backgroundColor: LIME,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  addMealHeaderBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: DARK_BG,
+  },
+  emptyBtnCol: {
+    width: '100%',
+    paddingHorizontal: 24,
+    marginTop: 20,
+    gap: 10,
+  },
+  emptyManualBtn: {
+    backgroundColor: DARK_BG,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyManualBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: LIME,
+  },
+  emptyScanBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E8EC',
+  },
+  emptyScanBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
 });
 
 export default MealHistoryScreen;

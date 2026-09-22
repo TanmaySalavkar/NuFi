@@ -5,6 +5,7 @@ import {
   ActivityIndicator, Image,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
+import { HealthConnectContext } from '../context/HealthConnectContext';
 import { AlertIcon, EyeIcon, EyeOffIcon } from '../components/Icons';
 
 const LIME = '#C8FF00';
@@ -36,8 +37,20 @@ const StepIndicator = ({ current, total }) => (
   </View>
 );
 
+const HEALTH_METRICS = [
+  { emoji: '👣', label: 'Steps & Distance' },
+  { emoji: '❤️', label: 'Heart Rate & HRV' },
+  { emoji: '💤', label: 'Sleep Duration' },
+  { emoji: '🏃', label: 'Exercise & Calories' },
+  { emoji: '⚖️', label: 'Weight & Body Fat' },
+  { emoji: '🩸', label: 'Blood Glucose & BP' },
+  { emoji: '💧', label: 'Hydration' },
+  { emoji: '🫧', label: 'Oxygen Saturation' },
+];
+
 const RegisterScreen = ({ navigation }) => {
   const { register } = useContext(AuthContext);
+  const healthConnect = useContext(HealthConnectContext);
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,6 +63,7 @@ const RegisterScreen = ({ navigation }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [hcConnecting, setHcConnecting] = useState(false);
   // Focus states
   const [nameFocus, setNameFocus] = useState(false);
   const [emailFocus, setEmailFocus] = useState(false);
@@ -66,7 +80,7 @@ const RegisterScreen = ({ navigation }) => {
     setStep(1);
   };
 
-  const handleRegister = async () => {
+  const handleHealthProfileNext = () => {
     setError('');
     const ageNum = Number(age);
     const weightNum = Number(weight);
@@ -74,18 +88,43 @@ const RegisterScreen = ({ navigation }) => {
     if (!ageNum || ageNum < 10 || ageNum > 120) { setError('Please enter a valid age (10-120).'); return; }
     if (!weightNum || weightNum < 20 || weightNum > 300) { setError('Please enter a valid weight (20-300 kg).'); return; }
     if (!heightNum || heightNum < 100 || heightNum > 250) { setError('Please enter a valid height (100-250 cm).'); return; }
+    setStep(2);
+  };
+
+  const handleRegister = async (withHealthConnect = false) => {
+    setError('');
     setIsLoading(true);
     try {
       const result = await register({
         name: name.trim(), email: email.trim().toLowerCase(), password,
-        profile: { age: ageNum, weight: weightNum, height: heightNum, gender, goal, activityLevel: 'moderate' },
+        profile: { age: Number(age), weight: Number(weight), height: Number(height), gender, goal, activityLevel: 'moderate' },
       });
-      if (!result.success) setError(result.error || 'Registration failed.');
+      if (!result.success) {
+        setError(result.error || 'Registration failed.');
+        setStep(1);
+      }
+      // Health Connect request happens after successful register (user is now authenticated)
     } catch (e) {
       setError('An unexpected error occurred. Please try again.');
+      setStep(1);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConnectAndFinish = async () => {
+    setHcConnecting(true);
+    try {
+      if (healthConnect?.requestAccess) {
+        await healthConnect.requestAccess();
+      }
+    } catch (_) {}
+    setHcConnecting(false);
+    await handleRegister(true);
+  };
+
+  const handleSkipHealthConnect = async () => {
+    await handleRegister(false);
   };
 
   const renderStep1 = () => (
@@ -225,19 +264,81 @@ const RegisterScreen = ({ navigation }) => {
         </TouchableOpacity>
       ))}
 
-      {/* Submit Button */}
+      {/* Next: Health Connect Step */}
       <TouchableOpacity
-        style={[s.primaryBtn, { marginTop: 22 }, isLoading && { opacity: 0.7 }]}
-        onPress={handleRegister}
-        disabled={isLoading}
+        style={[s.primaryBtn, { marginTop: 22 }]}
+        onPress={handleHealthProfileNext}
         activeOpacity={0.85}
       >
-        {isLoading ? (
+        <Text style={s.primaryBtnText}>Continue</Text>
+        <Text style={s.primaryBtnArrow}>→</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  const renderStep3 = () => (
+    <>
+      <TouchableOpacity
+        style={s.topBackBtn}
+        onPress={() => { setStep(1); setError(''); }}
+        activeOpacity={0.7}
+      >
+        <Text style={s.topBackBtnText}>← Back</Text>
+      </TouchableOpacity>
+
+      {/* HC Hero */}
+      <View style={hc.hero}>
+        <View style={hc.iconRing}>
+          <Text style={hc.iconEmoji}>❤️‍🔥</Text>
+        </View>
+        <Text style={s.cardTitle}>Connect Health Data</Text>
+        <Text style={s.cardSub}>Let NuFi read your activity and biometrics to give smarter nutrition advice</Text>
+      </View>
+
+      {/* Privacy pill */}
+      <View style={hc.privacyPill}>
+        <Text style={hc.privacyIcon}>🔒</Text>
+        <Text style={hc.privacyText}>Read-only · No background access · Encrypted at rest</Text>
+      </View>
+
+      {/* Metrics grid */}
+      <View style={hc.metricsGrid}>
+        {HEALTH_METRICS.map((m, i) => (
+          <View key={i} style={hc.metricChip}>
+            <Text style={hc.metricEmoji}>{m.emoji}</Text>
+            <Text style={hc.metricText}>{m.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Connect button */}
+      <TouchableOpacity
+        style={[s.primaryBtn, { marginTop: 20 }, (isLoading || hcConnecting) && { opacity: 0.7 }]}
+        onPress={handleConnectAndFinish}
+        disabled={isLoading || hcConnecting}
+        activeOpacity={0.85}
+      >
+        {(isLoading || hcConnecting) ? (
           <ActivityIndicator size="small" color={LIME} />
         ) : (
-          <Text style={s.primaryBtnText}>Create Profile</Text>
+          <>
+            <Text style={hc.connectIcon}>⚡</Text>
+            <Text style={s.primaryBtnText}>Connect Google Health</Text>
+          </>
         )}
       </TouchableOpacity>
+
+      {/* Skip */}
+      <TouchableOpacity
+        style={hc.skipBtn}
+        onPress={handleSkipHealthConnect}
+        disabled={isLoading || hcConnecting}
+        activeOpacity={0.7}
+      >
+        <Text style={hc.skipText}>Skip for now</Text>
+      </TouchableOpacity>
+
+      <Text style={hc.disclaimer}>You can connect Health Connect anytime from your Profile settings.</Text>
     </>
   );
 
@@ -261,11 +362,11 @@ const RegisterScreen = ({ navigation }) => {
           </View>
 
           {/* Step Indicator */}
-          <StepIndicator current={step} total={2} />
+          <StepIndicator current={step} total={3} />
 
           {/* Form Card */}
           <View style={s.card}>
-            {step === 0 ? renderStep1() : renderStep2()}
+            {step === 0 ? renderStep1() : step === 1 ? renderStep2() : renderStep3()}
           </View>
 
           {/* Sign In Link */}
@@ -390,6 +491,23 @@ const s = StyleSheet.create({
   linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24, marginBottom: 20 },
   linkText: { color: '#64748B', fontSize: 14, fontWeight: '500' },
   linkAction: { color: DARK_BG, fontSize: 14, fontWeight: '800', marginLeft: 5, textDecorationLine: 'underline' },
+});
+
+const hc = StyleSheet.create({
+  hero: { alignItems: 'center', marginBottom: 16 },
+  iconRing: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 2, borderColor: '#FFD6D6' },
+  iconEmoji: { fontSize: 32 },
+  privacyPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FFF4', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 16, gap: 8, borderWidth: 1, borderColor: '#BBF7D0', alignSelf: 'stretch' },
+  privacyIcon: { fontSize: 14 },
+  privacyText: { fontSize: 12, color: '#15803D', fontWeight: '600', flex: 1 },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  metricChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, gap: 6, borderWidth: 1, borderColor: '#E2E8F0', width: '47%' },
+  metricEmoji: { fontSize: 16 },
+  metricText: { fontSize: 12, color: DARK_BG, fontWeight: '600', flex: 1 },
+  connectIcon: { fontSize: 16, marginRight: 2 },
+  skipBtn: { alignItems: 'center', paddingVertical: 14, marginTop: 8 },
+  skipText: { fontSize: 14, color: '#64748B', fontWeight: '700', textDecorationLine: 'underline' },
+  disclaimer: { fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 12, lineHeight: 16 },
 });
 
 export default RegisterScreen;

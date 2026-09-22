@@ -127,7 +127,7 @@ const MealNutritionDetailScreen = ({ route, navigation }) => {
       if (result && result.success) {
         setLogged(true);
         Alert.alert('Meal Logged! 🎉', `${n.name || 'Meal'} has been added to your daily log.`, [
-          { text: 'View Dashboard', onPress: () => navigation.navigate('DietDashboard') },
+          { text: 'View Dashboard', onPress: () => navigation.navigate('Main', { screen: 'DietDashboard' }) },
         ]);
       } else {
         Alert.alert('Error', (result && result.error) || 'Failed to log meal. Please try again.');

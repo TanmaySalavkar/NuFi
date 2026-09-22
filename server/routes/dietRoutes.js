@@ -10,6 +10,43 @@ const router = express.Router();
 router.use(authMiddleware);
 
 /**
+ * Helper to compute start and end of day in UTC based on client timezone offset or date string.
+ * @param {number|string} timezoneOffset - minutes offset from UTC (e.g. -330 for IST).
+ * @param {string} [specificDateStr] - Optional YYYY-MM-DD date.
+ */
+function getDayRange(timezoneOffset, specificDateStr) {
+  const defaultOffset = process.env.DEFAULT_TIMEZONE_OFFSET !== undefined
+    ? Number(process.env.DEFAULT_TIMEZONE_OFFSET)
+    : -330; // Default to IST (-330) if unset
+
+  const parsedOffset = Number(timezoneOffset);
+  const offset = Number.isFinite(parsedOffset) ? parsedOffset : defaultOffset;
+
+  let year, month, date, clientTimeMs;
+
+  if (specificDateStr && /^\d{4}-\d{2}-\d{2}$/.test(specificDateStr)) {
+    const parts = specificDateStr.split('-').map(Number);
+    year = parts[0];
+    month = parts[1] - 1;
+    date = parts[2];
+    clientTimeMs = Date.UTC(year, month, date, 12, 0, 0);
+  } else {
+    const now = new Date();
+    clientTimeMs = now.getTime() - (offset * 60 * 1000);
+    const clientDate = new Date(clientTimeMs);
+    year = clientDate.getUTCFullYear();
+    month = clientDate.getUTCMonth();
+    date = clientDate.getUTCDate();
+  }
+
+  const startOfDayMs = Date.UTC(year, month, date, 0, 0, 0, 0) + (offset * 60 * 1000);
+  const startOfDay = new Date(startOfDayMs);
+  const endOfDay = new Date(startOfDayMs + 24 * 60 * 60 * 1000);
+
+  return { startOfDay, endOfDay, year, month, date, startOfDayMs, clientTimeMs, offset };
+}
+
+/**
  * GET /api/diet/dashboard
  * Returns user's daily targets, today's consumed totals, meals, habits, and health score
  */
@@ -20,13 +57,11 @@ router.get('/dashboard', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    // Get today's date range (start of day to end of day)
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    // Determine client timezone offset (via query param, header, or default)
+    const clientOffset = req.query.timezoneOffset ?? req.headers['x-timezone-offset'];
+    const { startOfDay, endOfDay, startOfDayMs, clientTimeMs } = getDayRange(clientOffset, req.query.date);
 
-    // Fetch today's meal logs
+    // Fetch today's meal logs in client's local day
     const todaysMeals = await MealLog.find({
       userId: req.user.id,
       loggedAt: { $gte: startOfDay, $lt: endOfDay },
@@ -67,32 +102,24 @@ router.get('/dashboard', async (req, res) => {
         100
     );
 
-    // Calculate week scores for Mon..Sun
-    const now = new Date();
-    const currentDayOfWeek = (now.getDay() + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - currentDayOfWeek);
-    monday.setHours(0, 0, 0, 0);
-
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
+    // Calculate week scores for Mon..Sun in client local timezone
+    const clientDayOfWeek = (new Date(clientTimeMs).getUTCDay() + 6) % 7;
+    const mondayStartMs = startOfDayMs - (clientDayOfWeek * 24 * 60 * 60 * 1000);
+    const sundayEndMs = mondayStartMs + (7 * 24 * 60 * 60 * 1000) - 1;
 
     const weekMeals = await MealLog.find({
       userId: req.user.id,
-      loggedAt: { $gte: monday, $lte: sunday },
+      loggedAt: { $gte: new Date(mondayStartMs), $lte: new Date(sundayEndMs) },
     });
 
     const weekScores = [null, null, null, null, null, null, null];
-    for (let day = 0; day <= currentDayOfWeek; day++) {
-      const dayStart = new Date(monday);
-      dayStart.setDate(monday.getDate() + day);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setHours(23, 59, 59, 999);
+    for (let day = 0; day <= clientDayOfWeek; day++) {
+      const dayStart = new Date(mondayStartMs + day * 24 * 60 * 60 * 1000);
+      const dayEnd = new Date(mondayStartMs + (day + 1) * 24 * 60 * 60 * 1000);
 
       const dMeals = weekMeals.filter(m => {
         const d = new Date(m.loggedAt);
-        return d >= dayStart && d <= dayEnd;
+        return d >= dayStart && d < dayEnd;
       });
 
       if (dMeals.length > 0) {
@@ -225,20 +252,9 @@ router.post('/log', async (req, res) => {
  */
 router.get('/history', async (req, res) => {
   try {
-    const { date } = req.query;
-
-    let startOfDay, endOfDay;
-
-    if (date) {
-      startOfDay = new Date(date);
-      endOfDay = new Date(date);
-      endOfDay.setDate(endOfDay.getDate() + 1);
-    } else {
-      const today = new Date();
-      startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      endOfDay = new Date(startOfDay);
-      endOfDay.setDate(endOfDay.getDate() + 1);
-    }
+    const { date, timezoneOffset } = req.query;
+    const clientOffset = timezoneOffset ?? req.headers['x-timezone-offset'];
+    const { startOfDay, endOfDay } = getDayRange(clientOffset, date);
 
     const meals = await MealLog.find({
       userId: req.user.id,

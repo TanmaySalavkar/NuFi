@@ -1,4 +1,4 @@
-import React, { useContext, useState, useCallback } from 'react';
+import React, { useContext, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   StatusBar, RefreshControl, Dimensions,
@@ -7,7 +7,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
 import { DietContext } from '../context/DietContext';
-import { COLORS } from '../theme';
+import { HealthConnectContext } from '../context/HealthConnectContext';
+import {
+  Footprints, Activity, Flame, Heart, Moon, Utensils, ChevronRight,
+} from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
@@ -54,40 +57,138 @@ const CircleProgress = ({ size, strokeWidth, progress, color, bgColor, children 
 const LIME = '#C8FF00';
 const LIME_DIM = '#A8D600';
 const DARK_BG = '#1A1A2E';
-const DARK_CARD = '#222240';
 const CARD_BG = '#FFFFFF';
 
 const DietDashboardScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
-  const { dashboard, fetchDashboard } = useContext(DietContext);
+  const { dashboard = {}, fetchDashboard = () => {} } = useContext(DietContext) || {};
   const [refreshing, setRefreshing] = useState(false);
+  const hcContext = useContext(HealthConnectContext) || {};
+  const {
+    isConnected = false,
+    latest = {},
+    dailySummaries = [],
+    today: todayData = {},
+    syncNow = async () => {},
+  } = hcContext;
 
   // Current day index (Mon=0 ... Sun=6)
   const today = new Date();
   const activeDay = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const lastFocusSyncRef = useRef(0);
 
   useFocusEffect(useCallback(() => {
     // Delay so the navigation animation (300ms) finishes before hitting the network
-    const timer = setTimeout(() => fetchDashboard(), 350);
+    const timer = setTimeout(() => {
+      fetchDashboard();
+      const now = Date.now();
+      if (isConnected && now - lastFocusSyncRef.current > 60000) {
+        lastFocusSyncRef.current = now;
+        syncNow({ silent: true });
+      }
+    }, 350);
     return () => clearTimeout(timer);
-  }, [fetchDashboard]));
+  }, [fetchDashboard, isConnected, syncNow]));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboard({ force: true }); // always hit network on manual pull-to-refresh
+    await Promise.all([
+      fetchDashboard({ force: true }),
+      isConnected ? syncNow() : Promise.resolve(),
+    ]);
     setRefreshing(false);
   };
 
   const targets = dashboard.targets || { calories: 2000, protein: 150, carbs: 250, fat: 65, fiber: 30, sugar: 50, sodium: 2300 };
   const consumed = dashboard.consumed || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 };
   const meals = Array.isArray(dashboard.meals) ? dashboard.meals : [];
-  const habits = Array.isArray(dashboard.habits) ? dashboard.habits : [];
   const healthScore = Number(dashboard.healthScore) || 0;
   const userName = dashboard.userName || '';
   const calPct = targets.calories > 0 ? (Number(consumed.calories) || 0) / targets.calories : 0;
-  const completedHabits = habits.filter(h => h.completed).length;
   const bottomInset = Math.max(insets.bottom + 16, 24);
+
+  // ── Health Connect / Google Fit Meaningful Metrics (Today's Totals) ──
+  const now = new Date();
+  const localTodayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const todaySummary = Array.isArray(dailySummaries)
+    ? (dailySummaries.find(d => d.date === localTodayStr) || dailySummaries[dailySummaries.length - 1])
+    : null;
+
+  // 1. Steps: total accumulated today
+  const stepsVal = (typeof todayData?.steps === 'number' && todayData.steps > 0)
+    ? todayData.steps
+    : (typeof todaySummary?.steps === 'number' && todaySummary.steps > 0)
+    ? todaySummary.steps
+    : (typeof todayData?.steps === 'number' ? todayData.steps : null);
+  const stepsDisplay = stepsVal != null ? Math.round(stepsVal).toLocaleString() : (isConnected ? '0' : '—');
+  const stepsGoal = 10000;
+  const stepsProgress = stepsVal ? Math.min(stepsVal / stepsGoal, 1) : 0;
+
+  // 2. Calories Burned: Total burned today (matching Google Fit's "Cal" display)
+  // Google Fit tracks Total Calories = Basal Metabolic Rate (BMR) so far + Active movement
+  const userWeight = Number(dashboard?.profile?.weight) || Number(user?.profile?.weight) || 75;
+  const userHeight = Number(dashboard?.profile?.height) || Number(user?.profile?.height) || 170;
+  const userAge = Number(dashboard?.profile?.age) || Number(user?.profile?.age) || 22;
+  const dailyBMR = Math.round((10 * userWeight) + (6.25 * userHeight) - (5 * userAge) + 5);
+
+  const hoursElapsed = now.getHours() + (now.getMinutes() / 60);
+  const bmrBurnedSoFar = Math.round(dailyBMR * (hoursElapsed / 24));
+  const activeCaloriesFromSteps = Math.round((stepsVal || 0) * 0.04);
+  const activeBurn = (todayData?.active_calories && todayData.active_calories > 0)
+    ? todayData.active_calories
+    : (todaySummary?.active_calories && todaySummary.active_calories > 0)
+    ? todaySummary.active_calories
+    : activeCaloriesFromSteps;
+
+  const totalCaloriesBurned = (typeof todayData?.total_calories === 'number' && todayData.total_calories > 0)
+    ? todayData.total_calories
+    : (typeof todaySummary?.total_calories === 'number' && todaySummary.total_calories > 0)
+    ? todaySummary.total_calories
+    : (bmrBurnedSoFar + activeBurn);
+
+  const caloriesDisplay = isConnected ? totalCaloriesBurned.toLocaleString() : '—';
+
+  // 3. Heart Rate: latest or average
+  const hrVal = (typeof todayData?.avg_heart_rate === 'number' && todayData.avg_heart_rate > 0)
+    ? todayData.avg_heart_rate
+    : (typeof todayData?.resting_heart_rate === 'number' && todayData.resting_heart_rate > 0)
+    ? todayData.resting_heart_rate
+    : (typeof latest?.heart_rate?.value === 'number' ? latest.heart_rate.value : null)
+    ?? (typeof latest?.resting_heart_rate?.value === 'number' ? latest.resting_heart_rate.value : null)
+    ?? todaySummary?.avg_heart_rate
+    ?? todaySummary?.resting_heart_rate;
+  const hrDisplay = hrVal != null && hrVal > 0 ? Math.round(hrVal) : '—';
+
+  // 4. Sleep Duration: total duration tracked (today, last night, or latest)
+  const sleepMinutes = (() => {
+    if (typeof todayData?.sleep_minutes === 'number' && todayData.sleep_minutes > 0) {
+      return todayData.sleep_minutes;
+    }
+    if (typeof todaySummary?.sleep_minutes === 'number' && todaySummary.sleep_minutes > 0) {
+      return todaySummary.sleep_minutes;
+    }
+    if (typeof latest?.sleep?.value === 'number' && latest.sleep.value > 0) {
+      return latest.sleep.value;
+    }
+    if (Array.isArray(dailySummaries)) {
+      for (let i = dailySummaries.length - 1; i >= 0; i--) {
+        if (dailySummaries[i]?.sleep_minutes && dailySummaries[i].sleep_minutes > 0) {
+          return dailySummaries[i].sleep_minutes;
+        }
+      }
+    }
+    return null;
+  })();
+
+  const formatSleepDuration = (mins) => {
+    if (mins == null || mins <= 0) return '—';
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    return h > 0 ? `${h}h ${m > 0 ? `${m}m` : ''}`.trim() : `${m}m`;
+  };
+  const sleepDisplay = formatSleepDuration(sleepMinutes);
 
   return (
     <View style={[s.container, { paddingTop: Math.max(insets.top, 12) }]}>
@@ -125,7 +226,7 @@ const DietDashboardScreen = ({ navigation }) => {
                 <Text style={s.scoreNum}>{healthScore}</Text>
                 <Text style={s.scoreOf}>/100</Text>
               </View>
-              <Text style={s.scoreSub}>Habits · Calories · Work</Text>
+              <Text style={s.scoreSub}>Nutrition · Activity · Balance</Text>
             </View>
             <CircleProgress size={64} strokeWidth={5} progress={healthScore / 100} color={LIME} bgColor="rgba(255,255,255,0.12)">
               <Text style={s.scoreRingText}>{Math.round(healthScore)}%</Text>
@@ -200,52 +301,153 @@ const DietDashboardScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* ═══ Habits & Tasks Cards (Side by Side) ═══ */}
-        <View style={s.bottomRow}>
-          {/* Habits Card */}
-          <TouchableOpacity style={s.bottomCard} activeOpacity={0.85}>
-            <Text style={s.bottomCardTitle}>Habits</Text>
-            <Text style={s.bottomCardSub}>{habits.length > 0 ? `${habits.length} active` : 'No habits'}</Text>
-            <View style={s.habitsVisual}>
-              <Text style={s.habitsCount}>{completedHabits}<Text style={s.habitsTotal}>/{habits.length || 5}</Text></Text>
-              <View style={s.habitDots}>
-                {(habits.length > 0 ? habits : Array(5).fill(null)).slice(0, 5).map((h, i) => (
-                  <View key={i} style={[s.habitDot, { backgroundColor: h?.completed ? LIME_DIM : (i % 3 === 0 ? '#EF4444' : i % 3 === 1 ? '#3B82F6' : '#F59E0B') }]} />
-                ))}
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Meals/Tasks Card */}
+        {/* ═══ Activity & Biometrics Section (Health Connect) ═══ */}
+        <View style={s.sectionHeaderRow}>
+          <View style={s.sectionHeaderLeft}>
+            <Activity size={18} color="#10B981" strokeWidth={2.5} />
+            <Text style={s.sectionMainTitle}>Activity & Biometrics</Text>
+          </View>
           <TouchableOpacity
-            style={s.bottomCard}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('MealHistory')}
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.7}
+            style={[s.hcStatusPill, isConnected ? s.hcStatusPillConnected : s.hcStatusPillDisconnected]}
           >
-            <Text style={s.bottomCardTitle}>Meals</Text>
-            <Text style={s.bottomCardSub}>{meals.length} logged today</Text>
-            <View style={s.tasksList}>
-              {meals.length > 0 ? meals.slice(0, 2).map((m, i) => (
-                <View key={m._id || i} style={s.taskItem}>
-                  <View style={[s.taskDot, { backgroundColor: m.mealType === 'breakfast' ? '#F59E0B' : m.mealType === 'lunch' ? '#3B82F6' : '#EF4444' }]} />
-                  <Text style={s.taskText} numberOfLines={1}>{m.name || 'Meal'}</Text>
-                  <Text style={s.taskTime}>{m.calories || 0}kcal</Text>
-                </View>
-              )) : (
-                <Text style={s.emptyTaskText}>Scan your first meal</Text>
-              )}
-            </View>
-            {meals.length > 0 && (
-              <Text style={s.viewHistoryLink}>View History →</Text>
-            )}
+            <View style={[s.hcStatusDot, { backgroundColor: isConnected ? '#10B981' : '#94A3B8' }]} />
+            <Text style={[s.hcStatusText, { color: isConnected ? '#059669' : '#64748B' }]}>
+              {isConnected ? 'Fit Synced' : 'Connect Fit'}
+            </Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={s.biometricGrid}>
+          {/* Steps Tile */}
+          <View style={s.metricCard}>
+            <View style={s.metricTopRow}>
+              <View style={[s.metricIconWrap, { backgroundColor: '#ECFDF5' }]}>
+                <Footprints size={15} color="#10B981" strokeWidth={2.5} />
+              </View>
+              <Text style={s.metricLabel}>STEPS</Text>
+            </View>
+            <View style={s.metricValRow}>
+              <Text style={s.metricVal}>{stepsDisplay}</Text>
+            </View>
+            <View style={s.progressBarBg}>
+              <View style={[s.progressBarFill, { width: `${Math.round(stepsProgress * 100)}%`, backgroundColor: '#10B981' }]} />
+            </View>
+            <Text style={s.metricSub}>Goal: {stepsGoal.toLocaleString()}</Text>
+          </View>
+
+          {/* Calories Burned Tile */}
+          <View style={s.metricCard}>
+            <View style={s.metricTopRow}>
+              <View style={[s.metricIconWrap, { backgroundColor: '#FFF7ED' }]}>
+                <Flame size={15} color="#F97316" strokeWidth={2.5} />
+              </View>
+              <Text style={s.metricLabel}>CALORIES</Text>
+            </View>
+            <View style={s.metricValRow}>
+              <Text style={s.metricVal}>{caloriesDisplay}</Text>
+              {caloriesDisplay !== '—' && <Text style={s.metricUnit}>kcal</Text>}
+            </View>
+            <Text style={[s.metricSub, { marginTop: 12 }]}>Total burned today</Text>
+          </View>
+
+          {/* Heart Rate Tile */}
+          <View style={s.metricCard}>
+            <View style={s.metricTopRow}>
+              <View style={[s.metricIconWrap, { backgroundColor: '#FFF1F2' }]}>
+                <Heart size={15} color="#F43F5E" strokeWidth={2.5} />
+              </View>
+              <Text style={s.metricLabel}>HEART RATE</Text>
+            </View>
+            <View style={s.metricValRow}>
+              <Text style={s.metricVal}>{hrDisplay}</Text>
+              {hrDisplay !== '—' && <Text style={s.metricUnit}>bpm</Text>}
+            </View>
+            <Text style={[s.metricSub, { marginTop: 12 }]}>Resting / Latest</Text>
+          </View>
+
+          {/* Sleep Tile */}
+          <View style={s.metricCard}>
+            <View style={s.metricTopRow}>
+              <View style={[s.metricIconWrap, { backgroundColor: '#F5F3FF' }]}>
+                <Moon size={15} color="#8B5CF6" strokeWidth={2.5} />
+              </View>
+              <Text style={s.metricLabel}>SLEEP</Text>
+            </View>
+            <View style={s.metricValRow}>
+              <Text style={s.metricVal}>{sleepDisplay}</Text>
+            </View>
+            <Text style={[s.metricSub, { marginTop: 12 }]}>Duration tracked</Text>
+          </View>
+        </View>
+
+        {/* ═══ Meals Section (Bottom Full-Width Card) ═══ */}
+        <View style={s.mealsCard}>
+          <View style={s.mealsHeader}>
+            <View>
+              <Text style={s.mealsTitle}>Today's Meals</Text>
+              <Text style={s.mealsSubtitle}>
+                {meals.length > 0 ? `${meals.length} logged today` : 'No meals logged yet'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={s.viewHistoryBtn}
+              onPress={() => navigation.navigate('MealHistory')}
+              activeOpacity={0.7}
+            >
+              <Text style={s.viewHistoryText}>View History</Text>
+              <ChevronRight size={14} color="#1A1A2E" strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+
+          {meals.length > 0 ? (
+            <View style={s.mealsList}>
+              {meals.map((m, i) => {
+                const mealColor = m.mealType === 'breakfast'
+                  ? '#F59E0B'
+                  : m.mealType === 'lunch'
+                  ? '#3B82F6'
+                  : m.mealType === 'dinner'
+                  ? '#8B5CF6'
+                  : '#10B981';
+
+                return (
+                  <View key={m._id || i} style={[s.mealItem, i === meals.length - 1 && s.mealItemLast]}>
+                    <View style={[s.mealDot, { backgroundColor: mealColor }]} />
+                    <View style={s.mealInfo}>
+                      <Text style={s.mealName} numberOfLines={1}>{m.name || 'Meal'}</Text>
+                      <Text style={s.mealTypeLabel}>
+                        {(m.mealType || 'meal').toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={s.mealCalBadge}>
+                      <Text style={s.mealCalNum}>{Math.round(m.calories || 0)}</Text>
+                      <Text style={s.mealCalUnit}>kcal</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={s.emptyMealsBox}
+              onPress={() => navigation.navigate('FoodScanner')}
+              activeOpacity={0.8}
+            >
+              <View style={s.emptyMealsIconWrap}>
+                <Utensils size={20} color="#94A3B8" strokeWidth={2} />
+              </View>
+              <Text style={s.emptyMealsTitle}>No meals logged today</Text>
+              <Text style={s.emptyMealsSub}>Tap to scan or log your food</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       </ScrollView>
     </View>
   );
 };
-
 
 // ── Styles ────────────────────────────────────────────
 const s = StyleSheet.create({
@@ -315,59 +517,257 @@ const s = StyleSheet.create({
   macroVal: { fontSize: 18, fontWeight: '800', color: DARK_BG, marginTop: 2 },
   macroTarget: { fontSize: 13, fontWeight: '500', color: 'rgba(26,26,46,0.4)' },
 
-  // ─ Bottom Row (Habits + Tasks) ─
-  bottomRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  bottomCard: {
-    flex: 1,
+  // ─ Activity & Biometrics Section ─
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionMainTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1A1A2E',
+    letterSpacing: -0.2,
+  },
+  hcStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 6,
+  },
+  hcStatusPillConnected: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  hcStatusPillDisconnected: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  hcStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  hcStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // Biometric 2x2 Grid
+  biometricGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 14,
+  },
+  metricCard: {
+    width: (width - 42) / 2,
     backgroundColor: CARD_BG,
     borderRadius: 20,
     padding: 16,
-    minHeight: 160,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
-  bottomCardTitle: { fontSize: 18, fontWeight: '800', color: '#1A1A2E', marginBottom: 2 },
-  bottomCardSub: { fontSize: 12, fontWeight: '500', color: '#94A3B8', marginBottom: 12 },
+  metricTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  metricIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.6,
+  },
+  metricValRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  metricVal: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1A1A2E',
+    letterSpacing: -0.5,
+  },
+  metricUnit: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  progressBarBg: {
+    height: 4,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 2,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  metricSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginTop: 4,
+  },
 
-  // Habits Visual
-  habitsVisual: { flex: 1, justifyContent: 'flex-end' },
-  habitsCount: { fontSize: 36, fontWeight: '900', color: '#1A1A2E' },
-  habitsTotal: { fontSize: 20, fontWeight: '600', color: '#94A3B8' },
-  habitDots: { flexDirection: 'row', gap: 4, marginTop: 8 },
-  habitDot: { width: 22, height: 6, borderRadius: 3 },
-
-  // Tasks / Meals mini list
-  tasksList: { flex: 1, justifyContent: 'flex-start', gap: 6 },
-  taskItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  taskDot: { width: 8, height: 8, borderRadius: 4 },
-  taskText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#1A1A2E' },
-  taskTime: { fontSize: 11, fontWeight: '600', color: '#94A3B8' },
-  emptyTaskText: { fontSize: 13, color: '#94A3B8', fontStyle: 'italic' },
-  viewHistoryLink: { fontSize: 12, fontWeight: '700', color: LIME_DIM, marginTop: 8 },
-
-  // ─ Modal / Profile ─
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { width: '100%', backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 8 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  modalAvatarCircle: { width: 54, height: 54, borderRadius: 27, backgroundColor: LIME, justifyContent: 'center', alignItems: 'center' },
-  modalAvatarText: { color: DARK_BG, fontSize: 22, fontWeight: '800' },
-  modalUserInfo: { flex: 1 },
-  modalUserName: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
-  modalUserEmail: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 16 },
-  menuSectionTitle: { fontSize: 12, fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
-  profileGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  profileMetric: { flex: 1, backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#F1F5F9' },
-  metricLabel: { fontSize: 11, color: '#94A3B8', marginBottom: 4 },
-  metricValue: { fontSize: 15, fontWeight: '700', color: LIME_DIM },
-  logoutItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#FEE2E2', marginBottom: 10, borderWidth: 1, borderColor: '#FCA5A5' },
-  logoutIcon: { fontSize: 18, marginRight: 12 },
-  logoutText: { color: '#EF4444', fontSize: 15, fontWeight: '600' },
-  closeBtn: { marginTop: 4, paddingVertical: 12, alignItems: 'center' },
-  closeBtnText: { color: '#94A3B8', fontSize: 14, fontWeight: '600' },
+  // ─ Meals Full-Width Card (Bottom) ─
+  mealsCard: {
+    backgroundColor: CARD_BG,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  mealsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  mealsTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1A1A2E',
+  },
+  mealsSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  viewHistoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  viewHistoryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  mealsList: {
+    gap: 0,
+  },
+  mealItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+    gap: 12,
+  },
+  mealItemLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 4,
+  },
+  mealDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  mealInfo: {
+    flex: 1,
+  },
+  mealName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  mealTypeLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  mealCalBadge: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  mealCalNum: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1A1A2E',
+  },
+  mealCalUnit: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  emptyMealsBox: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+  },
+  emptyMealsIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  emptyMealsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 2,
+  },
+  emptyMealsSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
 });
 
 export default DietDashboardScreen;
