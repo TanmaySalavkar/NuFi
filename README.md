@@ -18,10 +18,10 @@
 
 ### 🥗 Diet, Vision Scanner & AI Chat
 <p align="center">
-  <img src="./screenshots/Dashboard.jpeg?v=3" width="24%" alt="Diet Dashboard" />
-  <img src="./screenshots/FoodScanner.jpeg?v=3" width="24%" alt="AI Food Scanner" />
-  <img src="./screenshots/NuFiChat.jpeg?v=3" width="24%" alt="NuFi AI Coach" />
-  <img src="./screenshots/MealDetail.jpeg?v=3" width="24%" alt="Nutrition Breakdown" />
+  <img src="./screenshots/Dashboard.jpg" width="24%" alt="Diet Dashboard" />
+  <img src="./screenshots/FoodScan.jpg" width="24%" alt="AI Food Scanner" />
+  <img src="./screenshots/NutritionBreakdown.jpg" width="24%" alt="Nutrition Breakdown" />
+  <img src="./screenshots/AI.jpg" width="24%" alt="NuFi AI Coach" />
 </p>
 
 
