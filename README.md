@@ -14,7 +14,6 @@
 
 ## 📸 Screenshots & Previews
 
-> *Note: Place your screenshot files in `./screenshots/` with the corresponding filenames below.*
 
 ### 🥗 Diet, Vision Scanner & AI Chat
 <p align="center">
@@ -52,12 +51,7 @@
 - **Dynamic Daily Health Score (0–100)**: Multi-factor algorithm scoring caloric adherence, macronutrient balance, Nutri-Score quality, hydration, and physical activity.
 - **Weekly Adherence Trends**: Visual progress bars and analytics comparing consumption vs. burn over 7-day rolling windows.
 
-### 5. 🏥 Clinical Appointments & Specialist Directory
-- **Specialist Browsing**: Browse clinical doctor profiles categorized by specialization, clinical experience, and ratings.
-- **Dynamic Slot Picker**: Interactive day/time scheduling directly constrained to verified clinical hours.
-- **Offline-First Resilience**: Automatically caches doctor listings and schedules locally using `AsyncStorage` to ensure availability during network interruptions.
-
-### 6. 🛡️ Security, Privacy & Safety Guardrails
+### 5. 🛡️ Security, Privacy & Safety Guardrails
 - **AES-256-GCM Field Encryption**: Biometric snapshots from Health Connect are encrypted at rest with initialization vectors and auth tags.
 - **Explicit Biometric Consent**: Health Connect data is never queried or transmitted without explicit opt-in consent (`consentGiven: true`).
 - **Data Freshness Guardrail**: Discards sensor records older than 30 days and transparently warns users if device data has not synced in over 24 hours.
@@ -154,12 +148,7 @@
    DEFAULT_TIMEZONE_OFFSET=-330
    ```
 
-3. *(Optional)* Seed initial specialist doctor directory data:
-   ```bash
-   node seed.js
-   ```
-
-4. Start the backend server:
+3. Start the backend server:
    ```bash
    node index.js
    ```
@@ -203,6 +192,3 @@
 | **Biometric Freshness** | Biometric records are older than 30 days or stale by >24h | Discards obsolete data and informs user of exact last-synced timestamp. |
 
 ---
-
-## 📄 License
-This project is developed for health companion purposes. Please ensure compliance with Google Health Connect Developer Policies and healthcare regulatory guidelines in your jurisdiction.
